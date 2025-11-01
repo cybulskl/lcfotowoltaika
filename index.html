@@ -204,16 +204,15 @@
   }
 
 function renderTable() {
-  // Wyczyść obie tabele
+  // Wyczyść tabele
   tableBody.innerHTML = '';
   diffBody.innerHTML = '';
 
+  // 🔹 1. Główna tabela (tylko dane z filtra)
   const listToRender = filteredList || dataList;
-  const useFilteredDiffs = document.getElementById('diffModeToggle')?.checked;
-
-  // 🔹 1. Główna tabela (z filtrami)
   listToRender.forEach((item, index) => {
     const row = document.createElement('tr');
+    const globalIndex = dataList.indexOf(item); // oryginalny indeks w pełnych danych (do edycji/usuwania)
     row.innerHTML = `
       <td>${index + 1}</td>
       <td>${item.data}</td>
@@ -222,20 +221,18 @@ function renderTable() {
       <td>${parseFloat(item.gaz).toFixed(2)}</td>
       <td>${parseFloat(item.grzalka).toFixed(2)}</td>
       <td>
-        <button class="edit-btn" onclick="editRow(${dataList.indexOf(item)})">✏️</button>
-        <button class="delete-btn" onclick="deleteRow(${dataList.indexOf(item)})">🗑️</button>
+        <button class="edit-btn" onclick="editRow(${globalIndex})">✏️</button>
+        <button class="delete-btn" onclick="deleteRow(${globalIndex})">🗑️</button>
       </td>
     `;
     tableBody.appendChild(row);
   });
 
-  // 🔹 2. Dane różnicowe – w zależności od trybu
-  const diffSource = useFilteredDiffs ? listToRender : dataList;
-
-  diffSource.forEach((item, index) => {
+  // 🔹 2. Dane różnicowe (ZAWSZE z pełnych danych, bez filtra)
+  dataList.forEach((item, index) => {
     let dane = "";
     if (index > 0) {
-      const prev = diffSource[index - 1];
+      const prev = dataList[index - 1];
       const diffGaz = (item.gaz - prev.gaz).toFixed(2);
       const diffGrzalka = (item.grzalka - prev.grzalka).toFixed(2);
       const diff180 = (item.id180 - prev.id180).toFixed(2);
@@ -245,9 +242,10 @@ function renderTable() {
     diffBody.innerHTML += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
   });
 
-  // 🔹 Odśwież wykres
+  // 🔹 Odśwież wykres (działa z filtrem)
   renderChart?.();
 }
+
 
 
 
@@ -382,6 +380,7 @@ document.getElementById('diffModeToggle').addEventListener('change', () => {
   
 </body>
 </html>
+
 
 
 
