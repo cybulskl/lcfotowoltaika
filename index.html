@@ -7,23 +7,20 @@
 <style>
   body {
     font-family: Arial, sans-serif;
-    margin: 40px;
+    margin: 20px;
     background: #f7f7f7;
-  }
-  .container {
-    display: flex;
-    gap: 0;
-    align-items: flex-start;
   }
   table {
     border-collapse: collapse;
     background: white;
+    width: 100%;
+    margin-bottom: 20px;
   }
   th, td {
     border: 1px solid #ccc;
     padding: 8px 12px;
     text-align: center;
-    min-width: 80px;
+    min-width: 70px;
   }
   th {
     background-color: #eaeaea;
@@ -35,11 +32,10 @@
     align-items: center;
     margin-bottom: 20px;
   }
-  input {
+  input, button {
     padding: 6px;
   }
   button {
-    padding: 6px 12px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -48,32 +44,32 @@
   #clearAll { background-color: #d9534f; color: white; }
   #exportBtn { background-color: #5cb85c; color: white; }
 
-  /* Małe przyciski w kolumnie Akcje */
   .edit-btn, .delete-btn {
-    padding: 1px 3px;
-    font-size: 6px;
+    padding: 2px 5px;
+    font-size: 10px;
     border-radius: 3px;
   }
   .edit-btn { background-color: #f0ad4e; color: white; }
   .delete-btn { background-color: #d9534f; color: white; }
 
-  /* Styl dla kolumny z danymi różnicowymi */
-  #diffTable {
-    border-left: none;
-    width: 350px;
-  }
-  #diffTable th {
-    border-left: none;
-  }
+  /* Styl tabeli różnicowej */
   #diffTable td {
     text-align: left;
-    font-weight: bold;
-    padding-left: 10px;
   }
 
-  /* Wyrównanie wysokości wierszy */
-  #dataTable tr, #diffTable tr {
-    height: 38px;
+  /* Responsywność */
+  @media (max-width: 768px) {
+    table, th, td {
+      font-size: 12px;
+      padding: 4px;
+    }
+    form {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    input, button {
+      width: 100%;
+    }
   }
 </style>
 </head>
@@ -101,32 +97,32 @@
   <button type="button" id="clearFilterBtn">Wyczyść filtr</button>
 </div>
 
+<!-- Główna tabela -->
+<table id="dataTable">
+  <thead>
+    <tr>
+      <th>Lp</th>
+      <th>Data</th>
+      <th>ID 180</th>
+      <th>ID 260</th>
+      <th>GAZ</th>
+      <th>Grzałka</th>
+      <th>Akcje</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 
-<div class="container">
-  <!-- Główna tabela -->
-  <table style="width: 60%;" id="dataTable">
-    <thead>
-      <tr>
-        <th>Lp</th>
-        <th>Data</th>
-        <th>ID 180</th>
-        <th>ID 260</th>
-        <th>GAZ</th>
-        <th>Grzałka</th>
-        <th>Akcje</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-
-  <!-- Jedna kolumna z różnicami -->
-  <table style="width: 60%;" id="diffTable">
-    <thead>
-      <tr><th>Dane różnicowe</th></tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
+<!-- Tabela różnicowa na końcu -->
+<table id="diffTable">
+  <thead>
+    <tr>
+      <th>Data</th>
+      <th>Dane różnicowe</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 
 <script>
   const form = document.getElementById('dataForm');
@@ -136,7 +132,6 @@
   const exportBtn = document.getElementById('exportBtn');
   const addBtn = document.getElementById('addBtn');
 
-  // 🔹 Twoje dane z JSONBin.io
   const BIN_ID = "69064f4f43b1c97be9916a28"; 
   const API_KEY = "$2a$10$KvdpN6/53GdV2U00zsr2T.BoKtdLmYw8WFEnFXf1PKqSr9/QHMCJK";
   const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
@@ -145,7 +140,6 @@
   let editIndex = null;
   let filteredList = null;
 
-  // 🔹 Funkcja: Wczytaj dane z JSONBin
   async function wczytajZChmury() {
     try {
       const res = await fetch(`${API_URL}/latest`, {
@@ -154,7 +148,6 @@
       const json = await res.json();
       dataList = json.record || [];
       renderTable();
-      console.log("✅ Dane pobrane z chmury.");
     } catch (err) {
       console.error("Błąd wczytywania z JSONBin:", err);
       dataList = [];
@@ -162,7 +155,6 @@
     }
   }
 
-  // 🔹 Funkcja: Zapisz dane do JSONBin
   async function zapiszDoChmury() {
     try {
       await fetch(API_URL, {
@@ -173,13 +165,11 @@
         },
         body: JSON.stringify(dataList)
       });
-      console.log("💾 Dane zapisane do chmury!");
     } catch (err) {
       console.error("Błąd zapisu do JSONBin:", err);
     }
   }
 
-  // 🔹 Renderowanie tabeli
   function renderTable() {
     tableBody.innerHTML = '';
     diffBody.innerHTML = '';
@@ -211,11 +201,10 @@
         const diff260 = (item.id260 - prev.id260).toFixed(2);
         dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
       }
-      diffBody.innerHTML += `<tr><td>${dane}</td></tr>`;
+      diffBody.innerHTML += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
     });
   }
 
-  // 🔹 Dodawanie / edycja
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const newData = {
@@ -239,7 +228,6 @@
     form.reset();
   });
 
-  // 🔹 Edycja
   window.editRow = (index) => {
     const item = dataList[index];
     document.getElementById('data').value = item.data;
@@ -251,7 +239,6 @@
     addBtn.textContent = "Zapisz zmiany";
   };
 
-  // 🔹 Usuwanie
   window.deleteRow = async (index) => {
     if (confirm("Czy na pewno chcesz usunąć ten wiersz?")) {
       dataList.splice(index, 1);
@@ -260,7 +247,6 @@
     }
   };
 
-  // 🔹 Czyszczenie danych
   clearBtn.addEventListener('click', async () => {
     if (confirm('Czy na pewno chcesz usunąć wszystkie dane?')) {
       dataList = [];
@@ -269,7 +255,6 @@
     }
   });
 
-  // 🔹 Eksport do CSV (bez zmian)
   exportBtn.addEventListener('click', () => {
     let csv = "Lp;Data;ID 180;ID 260;GAZ;Grzałka;Dane różnicowe\n";
     dataList.forEach((item, index) => {
@@ -291,7 +276,6 @@
     link.click();
   });
 
-  // 🔹 Filtrowanie (bez zmian)
   const filterStart = document.getElementById('filterStart');
   const filterEnd = document.getElementById('filterEnd');
   const filterBtn = document.getElementById('filterBtn');
@@ -318,10 +302,7 @@
     renderTable();
   });
 
-  // 🔹 Start — wczytaj dane z JSONBin po otwarciu strony
   wczytajZChmury();
 </script>
-
-
 </body>
 </html>
