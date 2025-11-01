@@ -165,7 +165,7 @@
       const json = await res.json();
       dataList = json.record || [];
       renderTable();
-      renderDiffTable(); // 🔹 renderuj różnicowe tylko raz
+      renderDiffTable(); // 🔹 tylko raz przy wczytaniu
     } catch (err) {
       console.error("Błąd wczytywania z JSONBin:", err);
       dataList = [];
@@ -189,9 +189,9 @@
     }
   }
 
+  // 🔹 Główna tabela (filtrowanie nie wpływa na różnicowe)
   function renderTable() {
     tableBody.innerHTML = '';
-
     const listToRender = filteredList || dataList;
 
     listToRender.forEach((item, index) => {
@@ -213,6 +213,7 @@
     });
   }
 
+  // 🔹 Tabela różnicowa (aktualizowana tylko po zmianie danych)
   function renderDiffTable() {
     diffBody.innerHTML = '';
 
@@ -230,6 +231,7 @@
     });
   }
 
+  // 🔹 Dodawanie / edycja
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const newData = {
@@ -250,7 +252,7 @@
 
     await zapiszDoChmury();
     renderTable();
-    renderDiffTable(); // 🔹 aktualizuj różnicowe tylko po zmianie danych
+    renderDiffTable(); // 🔹 przelicz tylko po edycji/dodaniu
     form.reset();
   });
 
@@ -283,6 +285,7 @@
     }
   });
 
+  // 🔹 Eksport do CSV
   exportBtn.addEventListener('click', () => {
     let csv = "Lp;Data;ID 180;ID 260;GAZ;Grzałka;Dane różnicowe\n";
     dataList.forEach((item, index) => {
@@ -304,7 +307,7 @@
     link.click();
   });
 
-  // 🔹 Filtr po zakresie dat
+  // 🔹 Filtry – nie przeliczają różnicowych
   filterBtn.addEventListener('click', () => {
     const startDate = filterStart.value ? new Date(filterStart.value) : null;
     const endDate = filterEnd.value ? new Date(filterEnd.value) : null;
@@ -316,12 +319,8 @@
       return true;
     });
 
-    renderTable(); // różnicowe zostają bez zmian
+    renderTable(); // 🔹 nie rusza renderDiffTable()
   });
-
-  // 🔹 Filtr po miesiącu
-  const monthFilter = document.getElementById('monthFilter');
-  const monthFilterBtn = document.getElementById('monthFilterBtn');
 
   monthFilterBtn.addEventListener('click', () => {
     const selectedMonth = monthFilter.value;
@@ -335,10 +334,9 @@
       return itemMonth == selectedMonth;
     });
 
-    renderTable();
+    renderTable(); // 🔹 nie rusza renderDiffTable()
   });
 
-  // 🔹 Wyczyść filtr
   clearFilterBtn.addEventListener('click', () => {
     filteredList = null;
     filterStart.value = '';
@@ -352,3 +350,4 @@
 
 </body>
 </html>
+
