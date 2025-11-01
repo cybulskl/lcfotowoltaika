@@ -137,6 +137,15 @@
   <tbody></tbody>
 </table>
 
+<div style="margin-top: 30px; margin-bottom: 10px;">
+  <label>
+    <input type="checkbox" id="diffModeToggle" checked>
+    Pokazuj różnice tylko dla widocznych wierszy (filtr)
+  </label>
+</div>
+
+
+  
 <!-- Tabela różnicowa na końcu -->
 <table id="diffTable">
   <thead>
@@ -194,13 +203,15 @@
     }
   }
 
- function renderTable() {
+function renderTable() {
   // Wyczyść obie tabele
   tableBody.innerHTML = '';
   diffBody.innerHTML = '';
 
-  // 🔹 1. Tabela główna — pokazuje dane przefiltrowane
   const listToRender = filteredList || dataList;
+  const useFilteredDiffs = document.getElementById('diffModeToggle')?.checked;
+
+  // 🔹 1. Główna tabela (z filtrami)
   listToRender.forEach((item, index) => {
     const row = document.createElement('tr');
     row.innerHTML = `
@@ -218,11 +229,13 @@
     tableBody.appendChild(row);
   });
 
-  // 🔹 2. Tabela różnicowa — zawsze z pełnych danych (dataList)
-  dataList.forEach((item, index) => {
+  // 🔹 2. Dane różnicowe – w zależności od trybu
+  const diffSource = useFilteredDiffs ? listToRender : dataList;
+
+  diffSource.forEach((item, index) => {
     let dane = "";
     if (index > 0) {
-      const prev = dataList[index - 1];
+      const prev = diffSource[index - 1];
       const diffGaz = (item.gaz - prev.gaz).toFixed(2);
       const diffGrzalka = (item.grzalka - prev.grzalka).toFixed(2);
       const diff180 = (item.id180 - prev.id180).toFixed(2);
@@ -232,9 +245,10 @@
     diffBody.innerHTML += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
   });
 
-  // 🔹 Odśwież wykres po każdym renderze
+  // 🔹 Odśwież wykres
   renderChart?.();
 }
+
 
 
   form.addEventListener('submit', async (e) => {
@@ -355,11 +369,20 @@ clearFilterBtn.addEventListener('click', () => {
   
 
   wczytajZChmury();
+
+
+  // 🔹 Przełączanie trybu różnic
+document.getElementById('diffModeToggle').addEventListener('change', () => {
+  renderTable();
+});
+
+  
 </script>
 
   
 </body>
 </html>
+
 
 
 
