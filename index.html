@@ -304,5 +304,83 @@
 
   wczytajZChmury();
 </script>
+
+
+<h3>Wykres zmian GAZ i Grzałki</h3>
+<canvas id="energyChart" style="max-width: 100%; height: 300px;"></canvas>
+
+
+<!-- Ładowanie Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  let chart; // zmienna globalna dla wykresu
+
+  // 🔹 Funkcja do rysowania wykresu
+  function renderChart() {
+    const listToRender = filteredList || dataList;
+
+    // Sortujemy dane po dacie (na wszelki wypadek)
+    const sorted = [...listToRender].sort((a, b) => new Date(a.data) - new Date(b.data));
+
+    const labels = sorted.map(item => item.data);
+    const gazValues = sorted.map(item => item.gaz);
+    const grzalkaValues = sorted.map(item => item.grzalka);
+
+    const ctx = document.getElementById('energyChart').getContext('2d');
+
+    // Jeśli wykres już istnieje — usuń go, żeby odświeżyć
+    if (chart) {
+      chart.destroy();
+    }
+
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'GAZ',
+            data: gazValues,
+            borderColor: 'rgba(255, 99, 132, 1)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            tension: 0.3,
+            fill: true
+          },
+          {
+            label: 'Grzałka',
+            data: grzalkaValues,
+            borderColor: 'rgba(54, 162, 235, 1)',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            tension: 0.3,
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'top' },
+          title: {
+            display: false
+          }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Data' } },
+          y: { title: { display: true, text: 'Zużycie (jednostki)' }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // 🔹 Wywołanie wykresu po każdym renderze tabeli
+  const originalRenderTable = renderTable;
+  renderTable = function() {
+    originalRenderTable();
+    renderChart();
+  };
+</script>
+
+  
 </body>
 </html>
+
