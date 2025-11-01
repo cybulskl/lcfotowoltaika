@@ -92,6 +92,17 @@
   <button type="button" id="exportBtn">Eksportuj do CSV</button>
 </form>
 
+<div id="filterContainer" style="margin-bottom: 20px;">
+  <label for="filterStart">Od daty:</label>
+  <input type="date" id="filterStart">
+  <label for="filterEnd">Do daty:</label>
+  <input type="date" id="filterEnd">
+  <button type="button" id="filterBtn">Filtruj</button>
+  <button type="button" id="clearFilterBtn">Wyczyść filtr</button>
+</div>
+
+
+  
 <div class="container">
   <!-- Główna tabela -->
   <table style="width: 60%;" id="dataTable">
@@ -245,4 +256,5 @@
 </script>
 
 </body>
+
 </html>
