@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabela z danymi</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+    background: #f7f7f7;
+  }
+  .container {
+    display: flex;
+    gap: 0;
+    align-items: flex-start;
+  }
+  table {
+    border-collapse: collapse;
+    background: white;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 8px 12px;
+    text-align: center;
+    min-width: 80px;
+  }
+  th {
+    background-color: #eaeaea;
+  }
+  form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  input {
+    padding: 6px;
+  }
+  button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #addBtn { background-color: #0078d4; color: white; }
+  #clearAll { background-color: #d9534f; color: white; }
+  #exportBtn { background-color: #5cb85c; color: white; }
+
+  /* Małe przyciski w kolumnie Akcje */
+  .edit-btn, .delete-btn {
+    padding: 1px 3px;
+    font-size: 6px;
+    border-radius: 3px;
+  }
+  .edit-btn { background-color: #f0ad4e; color: white; }
+  .delete-btn { background-color: #d9534f; color: white; }
+
+  /* Styl dla kolumny z danymi różnicowymi */
+  #diffTable {
+    border-left: none;
+    width: 350px;
+  }
+  #diffTable th {
+    border-left: none;
+  }
+  #diffTable td {
+    text-align: left;
+    font-weight: bold;
+    padding-left: 10px;
+  }
+
+  /* Wyrównanie wysokości wierszy */
+  #dataTable tr, #diffTable tr {
+    height: 38px;
+  }
+</style>
+</head>
+<body>
+
+<h2>Dodaj dane do tabeli</h2>
+
+<form id="dataForm">
+  <input type="date" id="data" required>
+  <input type="number" id="id180" placeholder="ID 180" step="0.01" required>
+  <input type="number" id="id260" placeholder="ID 260" step="0.01" required>
+  <input type="number" id="gaz" placeholder="GAZ" step="0.01" required>
+  <input type="number" id="grzalka" placeholder="Grzałka" step="0.01" required>
+  <button type="submit" id="addBtn">Dodaj</button>
+  <button type="button" id="clearAll">Wyczyść dane</button>
+  <button type="button" id="exportBtn">Eksportuj do CSV</button>
+</form>
+
+<div class="container">
+  <!-- Główna tabela -->
+  <table style="width: 60%;" id="dataTable">
+    <thead>
+      <tr>
+        <th>Lp</th>
+        <th>Data</th>
+        <th>ID 180</th>
+        <th>ID 260</th>
+        <th>GAZ</th>
+        <th>Grzałka</th>
+        <th>Akcje</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- Jedna kolumna z różnicami -->
+  <table style="width: 60%;" id="diffTable">
+    <thead>
+      <tr><th>Dane różnicowe</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+  const form = document.getElementById('dataForm');
+  const tableBody = document.querySelector('#dataTable tbody');
+  const diffBody = document.querySelector('#diffTable tbody');
+  const clearBtn = document.getElementById('clearAll');
+  const exportBtn = document.getElementById('exportBtn');
+  const addBtn = document.getElementById('addBtn');
+
+  let dataList = JSON.parse(localStorage.getItem('tabelaDanych')) || [];
+  let editIndex = null;
+
+  // Renderowanie tabel
+  function renderTable() {
+    tableBody.innerHTML = '';
+    diffBody.innerHTML = '';
+
+    dataList.forEach((item, index) => {
+      // Główna tabela
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${index + 1}</td>
+        <td>${item.data}</td>
+        <td>${parseFloat(item.id180).toFixed(2)}</td>
+        <td>${parseFloat(item.id260).toFixed(2)}</td>
+        <td>${parseFloat(item.gaz).toFixed(2)}</td>
+        <td>${parseFloat(item.grzalka).toFixed(2)}</td>
+        <td>
+          <button class="edit-btn" onclick="editRow(${index})">✏️</button>
+          <button class="delete-btn" onclick="deleteRow(${index})">🗑️</button>
+        </td>
+      `;
+      tableBody.appendChild(row);
+
+      // Dane różnicowe
+      let dane = "";
+      if (index > 0) {
+        const prev = dataList[index - 1];
+        const diffGaz = (item.gaz - prev.gaz).toFixed(2);
+        const diffGrzalka = (item.grzalka - prev.grzalka).toFixed(2);
+        const diff180 = (item.id180 - prev.id180).toFixed(2);
+        const diff260 = (item.id260 - prev.id260).toFixed(2);
+        dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
+      }
+      diffBody.innerHTML += `<tr><td>${dane}</td></tr>`;
+    });
+  }
+
+  // Dodawanie / edycja
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const newData = {
+      data: document.getElementById('data').value,
+      id180: parseFloat(document.getElementById('id180').value),
+      id260: parseFloat(document.getElementById('id260').value),
+      gaz: parseFloat(document.getElementById('gaz').value),
+      grzalka: parseFloat(document.getElementById('grzalka').value)
+    };
+
+    if (editIndex !== null) {
+      dataList[editIndex] = newData;
+      editIndex = null;
+      addBtn.textContent = "Dodaj";
+    } else {
+      dataList.push(newData);
+    }
+
+    localStorage.setItem('tabelaDanych', JSON.stringify(dataList));
+    renderTable();
+    form.reset();
+  });
+
+  // Edycja
+  window.editRow = (index) => {
+    const item = dataList[index];
+    document.getElementById('data').value = item.data;
+    document.getElementById('id180').value = item.id180;
+    document.getElementById('id260').value = item.id260;
+    document.getElementById('gaz').value = item.gaz;
+    document.getElementById('grzalka').value = item.grzalka;
+    editIndex = index;
+    addBtn.textContent = "Zapisz zmiany";
+  };
+
+  // Usuwanie
+  window.deleteRow = (index) => {
+    if (confirm("Czy na pewno chcesz usunąć ten wiersz?")) {
+      dataList.splice(index, 1);
+      localStorage.setItem('tabelaDanych', JSON.stringify(dataList));
+      renderTable();
+    }
+  };
+
+  // Czyszczenie danych
+  clearBtn.addEventListener('click', () => {
+    if (confirm('Czy na pewno chcesz usunąć wszystkie dane?')) {
+      localStorage.removeItem('tabelaDanych');
+      dataList = [];
+      renderTable();
+    }
+  });
+
+  // Eksport do CSV
+  exportBtn.addEventListener('click', () => {
+    let csv = "Lp;Data;ID 180;ID 260;GAZ;Grzałka;Dane różnicowe\n";
+    dataList.forEach((item, index) => {
+      let dane = "";
+      if (index > 0) {
+        const prev = dataList[index - 1];
+        const diffGaz = (item.gaz - prev.gaz).toFixed(2);
+        const diffGrzalka = (item.grzalka - prev.grzalka).toFixed(2);
+        const diff180 = (item.id180 - prev.id180).toFixed(2);
+        const diff260 = (item.id260 - prev.id260).toFixed(2);
+        dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
+      }
+      csv += `${index + 1};${item.data};${item.id180};${item.id260};${item.gaz};${item.grzalka};${dane}\n`;
+    });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "tabela_danych.csv";
+    link.click();
+  });
+
+  renderTable();
+</script>
+
+</body>
+</html>
