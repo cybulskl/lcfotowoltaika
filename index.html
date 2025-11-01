@@ -156,7 +156,9 @@
   let dataList = [];
   let editIndex = null;
   let filteredList = null;
+  let diffCache = ""; // 🔹 pamięć dla tabeli różnicowej
 
+  // 🔹 Wczytaj dane z chmury
   async function wczytajZChmury() {
     try {
       const res = await fetch(`${API_URL}/latest`, {
@@ -165,7 +167,7 @@
       const json = await res.json();
       dataList = json.record || [];
       renderTable();
-      renderDiffTable(); // 🔹 tylko raz przy wczytaniu
+      renderDiffTable(); // tylko raz po wczytaniu
     } catch (err) {
       console.error("Błąd wczytywania z JSONBin:", err);
       dataList = [];
@@ -174,6 +176,7 @@
     }
   }
 
+  // 🔹 Zapisz dane
   async function zapiszDoChmury() {
     try {
       await fetch(API_URL, {
@@ -189,7 +192,7 @@
     }
   }
 
-  // 🔹 Główna tabela (filtrowanie nie wpływa na różnicowe)
+  // 🔹 Renderuj główną tabelę (filtrowanie NIE zmienia danych różnicowych)
   function renderTable() {
     tableBody.innerHTML = '';
     const listToRender = filteredList || dataList;
@@ -211,11 +214,17 @@
       `;
       tableBody.appendChild(row);
     });
+
+    // 🔹 Przywróć ostatnią wersję tabeli różnicowej (bez przeliczania)
+    if (diffCache) {
+      diffBody.innerHTML = diffCache;
+    }
   }
 
-  // 🔹 Tabela różnicowa (aktualizowana tylko po zmianie danych)
+  // 🔹 Renderuj tabelę różnicową (przeliczanie tylko po zmianie danych)
   function renderDiffTable() {
     diffBody.innerHTML = '';
+    let html = "";
 
     dataList.forEach((item, index) => {
       let dane = "";
@@ -227,8 +236,11 @@
         const diff260 = (item.id260 - prev.id260).toFixed(2);
         dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
       }
-      diffBody.innerHTML += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
+      html += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
     });
+
+    diffBody.innerHTML = html;
+    diffCache = html; // 🔹 zapamiętaj aktualny widok, by nie przeliczać po filtrze
   }
 
   // 🔹 Dodawanie / edycja
@@ -252,10 +264,11 @@
 
     await zapiszDoChmury();
     renderTable();
-    renderDiffTable(); // 🔹 przelicz tylko po edycji/dodaniu
+    renderDiffTable(); // 🔹 aktualizacja różnicowych tylko po zmianie danych
     form.reset();
   });
 
+  // 🔹 Edycja
   window.editRow = (index) => {
     const item = dataList[index];
     document.getElementById('data').value = item.data;
@@ -267,6 +280,7 @@
     addBtn.textContent = "Zapisz zmiany";
   };
 
+  // 🔹 Usuwanie
   window.deleteRow = async (index) => {
     if (confirm("Czy na pewno chcesz usunąć ten wiersz?")) {
       dataList.splice(index, 1);
@@ -276,6 +290,7 @@
     }
   };
 
+  // 🔹 Wyczyść wszystkie dane
   clearBtn.addEventListener('click', async () => {
     if (confirm('Czy na pewno chcesz usunąć wszystkie dane?')) {
       dataList = [];
@@ -285,7 +300,7 @@
     }
   });
 
-  // 🔹 Eksport do CSV
+  // 🔹 Eksport CSV
   exportBtn.addEventListener('click', () => {
     let csv = "Lp;Data;ID 180;ID 260;GAZ;Grzałka;Dane różnicowe\n";
     dataList.forEach((item, index) => {
@@ -307,7 +322,7 @@
     link.click();
   });
 
-  // 🔹 Filtry – nie przeliczają różnicowych
+  // 🔹 Filtry — NIE przeliczają różnicowych
   filterBtn.addEventListener('click', () => {
     const startDate = filterStart.value ? new Date(filterStart.value) : null;
     const endDate = filterEnd.value ? new Date(filterEnd.value) : null;
@@ -319,7 +334,7 @@
       return true;
     });
 
-    renderTable(); // 🔹 nie rusza renderDiffTable()
+    renderTable(); // różnicowe pozostają bez zmian
   });
 
   monthFilterBtn.addEventListener('click', () => {
@@ -334,7 +349,7 @@
       return itemMonth == selectedMonth;
     });
 
-    renderTable(); // 🔹 nie rusza renderDiffTable()
+    renderTable(); // różnicowe się nie zmieniają
   });
 
   clearFilterBtn.addEventListener('click', () => {
@@ -348,6 +363,8 @@
   wczytajZChmury();
 </script>
 
+
 </body>
 </html>
+
 
