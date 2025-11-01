@@ -52,13 +52,10 @@
   .edit-btn { background-color: #f0ad4e; color: white; }
   .delete-btn { background-color: #d9534f; color: white; }
 
-  /* Styl tabeli różnicowej */
   #diffTable td {
     text-align: left;
   }
 
-  
-  /* Responsywność */
   @media (max-width: 768px) {
     table, th, td {
       font-size: 12px;
@@ -119,9 +116,6 @@
   <button type="button" id="clearFilterBtn">Wyczyść filtr</button>
 </div>
 
-  
-
-<!-- Główna tabela -->
 <table id="dataTable">
   <thead>
     <tr>
@@ -137,7 +131,6 @@
   <tbody></tbody>
 </table>
 
-<!-- Tabela różnicowa na końcu -->
 <table id="diffTable">
   <thead>
     <tr>
@@ -172,10 +165,12 @@
       const json = await res.json();
       dataList = json.record || [];
       renderTable();
+      renderDiffTable(); // 🔹 renderuj różnicowe tylko raz
     } catch (err) {
       console.error("Błąd wczytywania z JSONBin:", err);
       dataList = [];
       renderTable();
+      renderDiffTable();
     }
   }
 
@@ -196,11 +191,11 @@
 
   function renderTable() {
     tableBody.innerHTML = '';
-    diffBody.innerHTML = '';
 
     const listToRender = filteredList || dataList;
 
     listToRender.forEach((item, index) => {
+      const globalIndex = dataList.indexOf(item);
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>${index + 1}</td>
@@ -210,15 +205,21 @@
         <td>${parseFloat(item.gaz).toFixed(2)}</td>
         <td>${parseFloat(item.grzalka).toFixed(2)}</td>
         <td>
-          <button class="edit-btn" onclick="editRow(${dataList.indexOf(item)})">✏️</button>
-          <button class="delete-btn" onclick="deleteRow(${dataList.indexOf(item)})">🗑️</button>
+          <button class="edit-btn" onclick="editRow(${globalIndex})">✏️</button>
+          <button class="delete-btn" onclick="deleteRow(${globalIndex})">🗑️</button>
         </td>
       `;
       tableBody.appendChild(row);
+    });
+  }
 
+  function renderDiffTable() {
+    diffBody.innerHTML = '';
+
+    dataList.forEach((item, index) => {
       let dane = "";
       if (index > 0) {
-        const prev = listToRender[index - 1];
+        const prev = dataList[index - 1];
         const diffGaz = (item.gaz - prev.gaz).toFixed(2);
         const diffGrzalka = (item.grzalka - prev.grzalka).toFixed(2);
         const diff180 = (item.id180 - prev.id180).toFixed(2);
@@ -249,6 +250,7 @@
 
     await zapiszDoChmury();
     renderTable();
+    renderDiffTable(); // 🔹 aktualizuj różnicowe tylko po zmianie danych
     form.reset();
   });
 
@@ -268,6 +270,7 @@
       dataList.splice(index, 1);
       await zapiszDoChmury();
       renderTable();
+      renderDiffTable();
     }
   };
 
@@ -276,6 +279,7 @@
       dataList = [];
       await zapiszDoChmury();
       renderTable();
+      renderDiffTable();
     }
   });
 
@@ -300,60 +304,51 @@
     link.click();
   });
 
+  // 🔹 Filtr po zakresie dat
+  filterBtn.addEventListener('click', () => {
+    const startDate = filterStart.value ? new Date(filterStart.value) : null;
+    const endDate = filterEnd.value ? new Date(filterEnd.value) : null;
 
-// 🔹 Filtr po zakresie dat
-filterBtn.addEventListener('click', () => {
-  const startDate = filterStart.value ? new Date(filterStart.value) : null;
-  const endDate = filterEnd.value ? new Date(filterEnd.value) : null;
+    filteredList = dataList.filter(item => {
+      const itemDate = new Date(item.data);
+      if (startDate && itemDate < startDate) return false;
+      if (endDate && itemDate > endDate) return false;
+      return true;
+    });
 
-  filteredList = dataList.filter(item => {
-    const itemDate = new Date(item.data);
-    if (startDate && itemDate < startDate) return false;
-    if (endDate && itemDate > endDate) return false;
-    return true;
+    renderTable(); // różnicowe zostają bez zmian
   });
 
-  renderTable();
-});
+  // 🔹 Filtr po miesiącu
+  const monthFilter = document.getElementById('monthFilter');
+  const monthFilterBtn = document.getElementById('monthFilterBtn');
 
-// 🔹 Filtr po miesiącu (niezależnie od roku)
-const monthFilter = document.getElementById('monthFilter');
-const monthFilterBtn = document.getElementById('monthFilterBtn');
+  monthFilterBtn.addEventListener('click', () => {
+    const selectedMonth = monthFilter.value;
+    if (selectedMonth === "") {
+      alert("Wybierz miesiąc!");
+      return;
+    }
 
-monthFilterBtn.addEventListener('click', () => {
-  const selectedMonth = monthFilter.value;
-  if (selectedMonth === "") {
-    alert("Wybierz miesiąc!");
-    return;
-  }
+    filteredList = dataList.filter(item => {
+      const itemMonth = new Date(item.data).getMonth();
+      return itemMonth == selectedMonth;
+    });
 
-  filteredList = dataList.filter(item => {
-    const itemMonth = new Date(item.data).getMonth(); // 0–11
-    return itemMonth == selectedMonth;
+    renderTable();
   });
 
-  renderTable();
-});
-
-// 🔹 Wyczyść filtr
-clearFilterBtn.addEventListener('click', () => {
-  filteredList = null;
-  filterStart.value = '';
-  filterEnd.value = '';
-  monthFilter.value = '';
-  renderTable();
-});
-
-  
+  // 🔹 Wyczyść filtr
+  clearFilterBtn.addEventListener('click', () => {
+    filteredList = null;
+    filterStart.value = '';
+    filterEnd.value = '';
+    monthFilter.value = '';
+    renderTable();
+  });
 
   wczytajZChmury();
 </script>
 
-  
 </body>
 </html>
-
-
-
-
-
