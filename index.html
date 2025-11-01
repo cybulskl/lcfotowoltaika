@@ -155,10 +155,8 @@
 
   let dataList = [];
   let editIndex = null;
-  let filteredList = null;
-  let diffCache = ""; // 🔹 pamięć dla tabeli różnicowej
+  let diffCache = []; // 🔹 zapisuje oryginalną tabelę różnicową
 
-  // 🔹 Wczytaj dane z chmury
   async function wczytajZChmury() {
     try {
       const res = await fetch(`${API_URL}/latest`, {
@@ -166,17 +164,16 @@
       });
       const json = await res.json();
       dataList = json.record || [];
-      renderTable();
-      renderDiffTable(); // tylko raz po wczytaniu
+      renderDataTable();
+      renderDiffTable();
     } catch (err) {
       console.error("Błąd wczytywania z JSONBin:", err);
       dataList = [];
-      renderTable();
+      renderDataTable();
       renderDiffTable();
     }
   }
 
-  // 🔹 Zapisz dane
   async function zapiszDoChmury() {
     try {
       await fetch(API_URL, {
@@ -192,13 +189,10 @@
     }
   }
 
-  // 🔹 Renderuj główną tabelę (filtrowanie NIE zmienia danych różnicowych)
-  function renderTable() {
+  // 🔹 Renderuj główną tabelę (zawsze pełna)
+  function renderDataTable() {
     tableBody.innerHTML = '';
-    const listToRender = filteredList || dataList;
-
-    listToRender.forEach((item, index) => {
-      const globalIndex = dataList.indexOf(item);
+    dataList.forEach((item, index) => {
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>${index + 1}</td>
@@ -208,42 +202,43 @@
         <td>${parseFloat(item.gaz).toFixed(2)}</td>
         <td>${parseFloat(item.grzalka).toFixed(2)}</td>
         <td>
-          <button class="edit-btn" onclick="editRow(${globalIndex})">✏️</button>
-          <button class="delete-btn" onclick="deleteRow(${globalIndex})">🗑️</button>
+          <button class="edit-btn" onclick="editRow(${index})">✏️</button>
+          <button class="delete-btn" onclick="deleteRow(${index})">🗑️</button>
         </td>
       `;
       tableBody.appendChild(row);
     });
-
-    // 🔹 Przywróć ostatnią wersję tabeli różnicowej (bez przeliczania)
-    if (diffCache) {
-      diffBody.innerHTML = diffCache;
-    }
   }
 
-  // 🔹 Renderuj tabelę różnicową (przeliczanie tylko po zmianie danych)
-  function renderDiffTable() {
+  // 🔹 Renderuj tabelę różnicową (i zapisz kopię)
+  function renderDiffTable(list = dataList) {
     diffBody.innerHTML = '';
-    let html = "";
+    diffCache = [];
 
-    dataList.forEach((item, index) => {
+    list.forEach((item, index) => {
       let dane = "";
       if (index > 0) {
-        const prev = dataList[index - 1];
+        const prev = list[index - 1];
         const diffGaz = (item.gaz - prev.gaz).toFixed(2);
         const diffGrzalka = (item.grzalka - prev.grzalka).toFixed(2);
         const diff180 = (item.id180 - prev.id180).toFixed(2);
         const diff260 = (item.id260 - prev.id260).toFixed(2);
         dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
       }
-      html += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
+      diffCache.push({ data: item.data, dane }); // 🔹 zapisz kopię
+      diffBody.innerHTML += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
     });
-
-    diffBody.innerHTML = html;
-    diffCache = html; // 🔹 zapamiętaj aktualny widok, by nie przeliczać po filtrze
   }
 
-  // 🔹 Dodawanie / edycja
+  // 🔹 Odśwież widok różnicowych z cache (np. po filtrze)
+  function renderDiffFromCache(list) {
+    diffBody.innerHTML = '';
+    list.forEach(row => {
+      diffBody.innerHTML += `<tr><td>${row.data}</td><td>${row.dane}</td></tr>`;
+    });
+  }
+
+  // 🔹 Dodaj / edytuj
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const newData = {
@@ -263,12 +258,12 @@
     }
 
     await zapiszDoChmury();
-    renderTable();
-    renderDiffTable(); // 🔹 aktualizacja różnicowych tylko po zmianie danych
+    renderDataTable();
+    renderDiffTable();
     form.reset();
   });
 
-  // 🔹 Edycja
+  // 🔹 Edytuj
   window.editRow = (index) => {
     const item = dataList[index];
     document.getElementById('data').value = item.data;
@@ -280,22 +275,22 @@
     addBtn.textContent = "Zapisz zmiany";
   };
 
-  // 🔹 Usuwanie
+  // 🔹 Usuń
   window.deleteRow = async (index) => {
     if (confirm("Czy na pewno chcesz usunąć ten wiersz?")) {
       dataList.splice(index, 1);
       await zapiszDoChmury();
-      renderTable();
+      renderDataTable();
       renderDiffTable();
     }
   };
 
-  // 🔹 Wyczyść wszystkie dane
+  // 🔹 Wyczyść wszystko
   clearBtn.addEventListener('click', async () => {
     if (confirm('Czy na pewno chcesz usunąć wszystkie dane?')) {
       dataList = [];
       await zapiszDoChmury();
-      renderTable();
+      renderDataTable();
       renderDiffTable();
     }
   });
@@ -322,49 +317,35 @@
     link.click();
   });
 
-  // 🔹 Filtry — NIE przeliczają różnicowych
-  filterBtn.addEventListener('click', () => {
-    const startDate = filterStart.value ? new Date(filterStart.value) : null;
-    const endDate = filterEnd.value ? new Date(filterEnd.value) : null;
-
-    filteredList = dataList.filter(item => {
-      const itemDate = new Date(item.data);
-      if (startDate && itemDate < startDate) return false;
-      if (endDate && itemDate > endDate) return false;
-      return true;
-    });
-
-    renderTable(); // różnicowe pozostają bez zmian
-  });
-
+  // 🔹 Filtr po miesiącu – tylko tabela różnicowa
   monthFilterBtn.addEventListener('click', () => {
-    const selectedMonth = monthFilter.value;
+    const selectedMonth = document.getElementById('monthFilter').value;
     if (selectedMonth === "") {
       alert("Wybierz miesiąc!");
       return;
     }
 
-    filteredList = dataList.filter(item => {
-      const itemMonth = new Date(item.data).getMonth();
-      return itemMonth == selectedMonth;
+    const filteredDiff = diffCache.filter(row => {
+      const month = new Date(row.data).getMonth();
+      return month == selectedMonth;
     });
 
-    renderTable(); // różnicowe się nie zmieniają
+    renderDiffFromCache(filteredDiff); // tylko różnicowe się zmieniają
   });
 
+  // 🔹 Wyczyść filtr miesiąca
   clearFilterBtn.addEventListener('click', () => {
-    filteredList = null;
-    filterStart.value = '';
-    filterEnd.value = '';
-    monthFilter.value = '';
-    renderTable();
+    renderDiffFromCache(diffCache); // przywróć pełną tabelę różnicową
+    document.getElementById('monthFilter').value = '';
   });
 
   wczytajZChmury();
 </script>
 
 
+
 </body>
 </html>
+
 
 
