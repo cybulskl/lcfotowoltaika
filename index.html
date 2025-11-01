@@ -52,10 +52,13 @@
   .edit-btn { background-color: #f0ad4e; color: white; }
   .delete-btn { background-color: #d9534f; color: white; }
 
+  /* Styl tabeli różnicowej */
   #diffTable td {
     text-align: left;
   }
 
+  
+  /* Responsywność */
   @media (max-width: 768px) {
     table, th, td {
       font-size: 12px;
@@ -86,10 +89,39 @@
   <button type="button" id="exportBtn">Eksportuj do CSV</button>
 </form>
 
+<div id="filterContainer" style="margin-bottom: 20px;">
+  <label for="filterStart">Od daty:</label>
+  <input type="date" id="filterStart">
+  <label for="filterEnd">Do daty:</label>
+  <input type="date" id="filterEnd">
+  <button type="button" id="filterBtn">Filtruj zakres</button>
 
+  <hr style="margin:10px 0;">
 
- 
+  <label for="monthFilter">Filtruj po miesiącu:</label>
+  <select id="monthFilter">
+    <option value="">-- wybierz miesiąc --</option>
+    <option value="0">Styczeń</option>
+    <option value="1">Luty</option>
+    <option value="2">Marzec</option>
+    <option value="3">Kwiecień</option>
+    <option value="4">Maj</option>
+    <option value="5">Czerwiec</option>
+    <option value="6">Lipiec</option>
+    <option value="7">Sierpień</option>
+    <option value="8">Wrzesień</option>
+    <option value="9">Październik</option>
+    <option value="10">Listopad</option>
+    <option value="11">Grudzień</option>
+  </select>
 
+  <button type="button" id="monthFilterBtn">Filtruj miesiąc</button>
+  <button type="button" id="clearFilterBtn">Wyczyść filtr</button>
+</div>
+
+  
+
+<!-- Główna tabela -->
 <table id="dataTable">
   <thead>
     <tr>
@@ -105,6 +137,7 @@
   <tbody></tbody>
 </table>
 
+<!-- Tabela różnicowa na końcu -->
 <table id="diffTable">
   <thead>
     <tr>
@@ -129,7 +162,7 @@
 
   let dataList = [];
   let editIndex = null;
-  let diffCache = []; // 🔹 zapisuje oryginalną tabelę różnicową
+  let filteredList = null;
 
   async function wczytajZChmury() {
     try {
@@ -138,13 +171,11 @@
       });
       const json = await res.json();
       dataList = json.record || [];
-      renderDataTable();
-      renderDiffTable();
+      renderTable();
     } catch (err) {
       console.error("Błąd wczytywania z JSONBin:", err);
       dataList = [];
-      renderDataTable();
-      renderDiffTable();
+      renderTable();
     }
   }
 
@@ -163,10 +194,13 @@
     }
   }
 
-  // 🔹 Renderuj główną tabelę (zawsze pełna)
-  function renderDataTable() {
+  function renderTable() {
     tableBody.innerHTML = '';
-    dataList.forEach((item, index) => {
+    diffBody.innerHTML = '';
+
+    const listToRender = filteredList || dataList;
+
+    listToRender.forEach((item, index) => {
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>${index + 1}</td>
@@ -176,46 +210,25 @@
         <td>${parseFloat(item.gaz).toFixed(2)}</td>
         <td>${parseFloat(item.grzalka).toFixed(2)}</td>
         <td>
-          <button class="edit-btn" onclick="editRow(${index})">✏️</button>
-          <button class="delete-btn" onclick="deleteRow(${index})">🗑️</button>
+          <button class="edit-btn" onclick="editRow(${dataList.indexOf(item)})">✏️</button>
+          <button class="delete-btn" onclick="deleteRow(${dataList.indexOf(item)})">🗑️</button>
         </td>
       `;
       tableBody.appendChild(row);
-    });
-  }
 
-
-
-  
-  // 🔹 Renderuj tabelę różnicową (i zapisz kopię)
-  function renderDiffTable(list = dataList) {
-    diffBody.innerHTML = '';
-    diffCache = [];
-
-    list.forEach((item, index) => {
       let dane = "";
       if (index > 0) {
-        const prev = list[index - 1];
+        const prev = listToRender[index - 1];
         const diffGaz = (item.gaz - prev.gaz).toFixed(2);
         const diffGrzalka = (item.grzalka - prev.grzalka).toFixed(2);
         const diff180 = (item.id180 - prev.id180).toFixed(2);
         const diff260 = (item.id260 - prev.id260).toFixed(2);
         dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
       }
-      diffCache.push({ data: item.data, dane }); // 🔹 zapisz kopię
       diffBody.innerHTML += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
     });
   }
 
-  // 🔹 Odśwież widok różnicowych z cache (np. po filtrze)
-  function renderDiffFromCache(list) {
-    diffBody.innerHTML = '';
-    list.forEach(row => {
-      diffBody.innerHTML += `<tr><td>${row.data}</td><td>${row.dane}</td></tr>`;
-    });
-  }
-
-  // 🔹 Dodaj / edytuj
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const newData = {
@@ -235,12 +248,10 @@
     }
 
     await zapiszDoChmury();
-    renderDataTable();
-    renderDiffTable();
+    renderTable();
     form.reset();
   });
 
-  // 🔹 Edytuj
   window.editRow = (index) => {
     const item = dataList[index];
     document.getElementById('data').value = item.data;
@@ -252,27 +263,22 @@
     addBtn.textContent = "Zapisz zmiany";
   };
 
-  // 🔹 Usuń
   window.deleteRow = async (index) => {
     if (confirm("Czy na pewno chcesz usunąć ten wiersz?")) {
       dataList.splice(index, 1);
       await zapiszDoChmury();
-      renderDataTable();
-      renderDiffTable();
+      renderTable();
     }
   };
 
-  // 🔹 Wyczyść wszystko
   clearBtn.addEventListener('click', async () => {
     if (confirm('Czy na pewno chcesz usunąć wszystkie dane?')) {
       dataList = [];
       await zapiszDoChmury();
-      renderDataTable();
-      renderDiffTable();
+      renderTable();
     }
   });
 
-  // 🔹 Eksport CSV
   exportBtn.addEventListener('click', () => {
     let csv = "Lp;Data;ID 180;ID 260;GAZ;Grzałka;Dane różnicowe\n";
     dataList.forEach((item, index) => {
@@ -294,36 +300,58 @@
     link.click();
   });
 
-  // 🔹 Filtr po miesiącu – tylko tabela różnicowa
-  monthFilterBtn.addEventListener('click', () => {
-    const selectedMonth = document.getElementById('monthFilter').value;
-    if (selectedMonth === "") {
-      alert("Wybierz miesiąc!");
-      return;
-    }
 
-    const filteredDiff = diffCache.filter(row => {
-      const month = new Date(row.data).getMonth();
-      return month == selectedMonth;
-    });
+// 🔹 Filtr po zakresie dat
+filterBtn.addEventListener('click', () => {
+  const startDate = filterStart.value ? new Date(filterStart.value) : null;
+  const endDate = filterEnd.value ? new Date(filterEnd.value) : null;
 
-    renderDiffFromCache(filteredDiff); // tylko różnicowe się zmieniają
+  filteredList = dataList.filter(item => {
+    const itemDate = new Date(item.data);
+    if (startDate && itemDate < startDate) return false;
+    if (endDate && itemDate > endDate) return false;
+    return true;
   });
 
-  // 🔹 Wyczyść filtr miesiąca
-  clearFilterBtn.addEventListener('click', () => {
-    renderDiffFromCache(diffCache); // przywróć pełną tabelę różnicową
-    document.getElementById('monthFilter').value = '';
+  renderTable();
+});
+
+// 🔹 Filtr po miesiącu (niezależnie od roku)
+const monthFilter = document.getElementById('monthFilter');
+const monthFilterBtn = document.getElementById('monthFilterBtn');
+
+monthFilterBtn.addEventListener('click', () => {
+  const selectedMonth = monthFilter.value;
+  if (selectedMonth === "") {
+    alert("Wybierz miesiąc!");
+    return;
+  }
+
+  filteredList = dataList.filter(item => {
+    const itemMonth = new Date(item.data).getMonth(); // 0–11
+    return itemMonth == selectedMonth;
   });
+
+  renderTable();
+});
+
+// 🔹 Wyczyść filtr
+clearFilterBtn.addEventListener('click', () => {
+  filteredList = null;
+  filterStart.value = '';
+  filterEnd.value = '';
+  monthFilter.value = '';
+  renderTable();
+});
+
+  
 
   wczytajZChmury();
 </script>
 
-
-
+  
 </body>
 </html>
-
 
 
 
