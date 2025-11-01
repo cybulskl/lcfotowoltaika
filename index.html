@@ -137,15 +137,6 @@
   <tbody></tbody>
 </table>
 
-<div style="margin-top: 30px; margin-bottom: 10px;">
-  <label>
-    <input type="checkbox" id="diffModeToggle" checked>
-    Pokazuj różnice tylko dla widocznych wierszy (filtr)
-  </label>
-</div>
-
-
-  
 <!-- Tabela różnicowa na końcu -->
 <table id="diffTable">
   <thead>
@@ -203,51 +194,40 @@
     }
   }
 
-function renderTable() {
-  // Wyczyść tabele
-  tableBody.innerHTML = '';
-  diffBody.innerHTML = '';
+  function renderTable() {
+    tableBody.innerHTML = '';
+    diffBody.innerHTML = '';
 
-  // 🔹 1. Główna tabela (tylko dane z filtra)
-  const listToRender = filteredList || dataList;
-  listToRender.forEach((item, index) => {
-    const row = document.createElement('tr');
-    const globalIndex = dataList.indexOf(item); // oryginalny indeks w pełnych danych (do edycji/usuwania)
-    row.innerHTML = `
-      <td>${index + 1}</td>
-      <td>${item.data}</td>
-      <td>${parseFloat(item.id180).toFixed(2)}</td>
-      <td>${parseFloat(item.id260).toFixed(2)}</td>
-      <td>${parseFloat(item.gaz).toFixed(2)}</td>
-      <td>${parseFloat(item.grzalka).toFixed(2)}</td>
-      <td>
-        <button class="edit-btn" onclick="editRow(${globalIndex})">✏️</button>
-        <button class="delete-btn" onclick="deleteRow(${globalIndex})">🗑️</button>
-      </td>
-    `;
-    tableBody.appendChild(row);
-  });
+    const listToRender = filteredList || dataList;
 
-  // 🔹 2. Dane różnicowe (ZAWSZE z pełnych danych, bez filtra)
-  dataList.forEach((item, index) => {
-    let dane = "";
-    if (index > 0) {
-      const prev = dataList[index - 1];
-      const diffGaz = (item.gaz - prev.gaz).toFixed(2);
-      const diffGrzalka = (item.grzalka - prev.grzalka).toFixed(2);
-      const diff180 = (item.id180 - prev.id180).toFixed(2);
-      const diff260 = (item.id260 - prev.id260).toFixed(2);
-      dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
-    }
-    diffBody.innerHTML += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
-  });
+    listToRender.forEach((item, index) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${index + 1}</td>
+        <td>${item.data}</td>
+        <td>${parseFloat(item.id180).toFixed(2)}</td>
+        <td>${parseFloat(item.id260).toFixed(2)}</td>
+        <td>${parseFloat(item.gaz).toFixed(2)}</td>
+        <td>${parseFloat(item.grzalka).toFixed(2)}</td>
+        <td>
+          <button class="edit-btn" onclick="editRow(${dataList.indexOf(item)})">✏️</button>
+          <button class="delete-btn" onclick="deleteRow(${dataList.indexOf(item)})">🗑️</button>
+        </td>
+      `;
+      tableBody.appendChild(row);
 
-  // 🔹 Odśwież wykres (działa z filtrem)
-  renderChart?.();
-}
-
-
-
+      let dane = "";
+      if (index > 0) {
+        const prev = listToRender[index - 1];
+        const diffGaz = (item.gaz - prev.gaz).toFixed(2);
+        const diffGrzalka = (item.grzalka - prev.grzalka).toFixed(2);
+        const diff180 = (item.id180 - prev.id180).toFixed(2);
+        const diff260 = (item.id260 - prev.id260).toFixed(2);
+        dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
+      }
+      diffBody.innerHTML += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
+    });
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -367,18 +347,11 @@ clearFilterBtn.addEventListener('click', () => {
   
 
   wczytajZChmury();
-
-
-
-  
 </script>
 
   
 </body>
 </html>
-
-
-
 
 
 
