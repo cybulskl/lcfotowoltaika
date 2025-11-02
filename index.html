@@ -79,7 +79,7 @@
   <tbody></tbody>
 </table>
 
-<!-- Tabela różnicowa na końcu -->
+<!-- Tabela różnicowa -->
 <table id="diffTable">
   <thead>
     <tr>
@@ -97,8 +97,6 @@
   const clearBtn = document.getElementById('clearAll');
   const exportBtn = document.getElementById('exportBtn');
   const addBtn = document.getElementById('addBtn');
-
-  // Deklaracje filtrów (poprawka: wcześniej brakowało tych const)
   const filterStart = document.getElementById('filterStart');
   const filterEnd = document.getElementById('filterEnd');
   const filterBtn = document.getElementById('filterBtn');
@@ -106,22 +104,20 @@
   const monthFilterBtn = document.getElementById('monthFilterBtn');
   const clearFilterBtn = document.getElementById('clearFilterBtn');
 
-  // JSONBin — zachowaj swoje wartości
   const BIN_ID = "69064f4f43b1c97be9916a28";
   const API_KEY = "$2a$10$KvdpN6/53GdV2U00zsr2T.BoKtdLmYw8WFEnFXf1PKqSr9/QHMCJK";
   const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
   let dataList = [];
-  let editId = null;        // przechowuje id rekordu będącego w edycji
   let filteredList = null;
+  let editId = null;
+  let disableDiff = false; // 🔹 flaga blokująca przeliczanie różnic
 
   async function wczytajZChmury() {
     try {
       const res = await fetch(`${API_URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
       const json = await res.json();
-      // json.record może być tablicą
       dataList = Array.isArray(json.record) ? json.record : (json.record || []);
-      // jeżeli rekordy nie mają id (stare dane), nadajemy im id
       dataList = dataList.map(item => item.id ? item : ({ ...item, id: Date.now() + Math.floor(Math.random()*1000) }));
       renderTable();
     } catch (err) {
@@ -146,8 +142,6 @@
   function renderTable() {
     tableBody.innerHTML = '';
     diffBody.innerHTML = '';
-
-    // sortujemy kopię listy (najnowsze pierwsze)
     const base = filteredList || dataList;
     const listToRender = base.slice().sort((a, b) => new Date(b.data) - new Date(a.data));
 
@@ -167,16 +161,18 @@
       `;
       tableBody.appendChild(row);
 
-      // różnice liczymy względem poprzedniego wiersza w wyświetlanej (posortowanej) liście
       let dane = "";
-      if (index > 0) {
+      if (!disableDiff && index > 0) {
         const prev = listToRender[index - 1];
         const diffGaz = (Number(item.gaz) - Number(prev.gaz)).toFixed(2);
         const diffGrzalka = (Number(item.grzalka) - Number(prev.grzalka)).toFixed(2);
         const diff180 = (Number(item.id180) - Number(prev.id180)).toFixed(2);
         const diff260 = (Number(item.id260) - Number(prev.id260)).toFixed(2);
         dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
+      } else if (disableDiff) {
+        dane = `GAZ: ${item.gaz.toFixed(2)} | Grzałka: ${item.grzalka.toFixed(2)} | 180: ${item.id180.toFixed(2)} | 260: ${item.id260.toFixed(2)}`;
       }
+
       diffBody.innerHTML += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
     });
   }
@@ -192,11 +188,6 @@
       grzalka: parseFloat(document.getElementById('grzalka').value)
     };
 
-    if (!newData.data) {
-      alert("Wybierz datę.");
-      return;
-    }
-
     if (editId) {
       const idx = dataList.findIndex(d => d.id === editId);
       if (idx !== -1) dataList[idx] = newData;
@@ -207,12 +198,12 @@
     }
 
     await zapiszDoChmury();
-    filteredList = null; // po dodaniu/edycji usuwamy filtr, żeby widzieć aktualne
+    filteredList = null;
+    disableDiff = false;
     renderTable();
     form.reset();
   });
 
-  // funkcje globalne (okna) używane z onclick w html
   window.editRow = (id) => {
     const item = dataList.find(d => String(d.id) === String(id));
     if (!item) return alert("Nie znaleziono wiersza do edycji.");
@@ -223,7 +214,6 @@
     document.getElementById('grzalka').value = item.grzalka;
     editId = item.id;
     addBtn.textContent = "Zapisz zmiany";
-    // scroll do formularza
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -242,25 +232,26 @@
       dataList = [];
       await zapiszDoChmury();
       filteredList = null;
+      disableDiff = false;
       renderTable();
     }
   });
 
   exportBtn.addEventListener('click', () => {
-    // Eksportujemy to, co jest widoczne (posortowane)
     const base = filteredList || dataList;
     const listToExport = base.slice().sort((a, b) => new Date(b.data) - new Date(a.data));
-
     let csv = "Lp;Data;ID 180;ID 260;GAZ;Grzałka;Dane różnicowe\n";
     listToExport.forEach((item, index) => {
       let dane = "";
-      if (index > 0) {
+      if (!disableDiff && index > 0) {
         const prev = listToExport[index - 1];
         const diffGaz = (Number(item.gaz) - Number(prev.gaz)).toFixed(2);
         const diffGrzalka = (Number(item.grzalka) - Number(prev.grzalka)).toFixed(2);
         const diff180 = (Number(item.id180) - Number(prev.id180)).toFixed(2);
         const diff260 = (Number(item.id260) - Number(prev.id260)).toFixed(2);
         dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
+      } else if (disableDiff) {
+        dane = `GAZ: ${item.gaz.toFixed(2)} | Grzałka: ${item.grzalka.toFixed(2)} | 180: ${item.id180.toFixed(2)} | 260: ${item.id260.toFixed(2)}`;
       }
       csv += `${index + 1};${item.data};${item.id180};${item.id260};${item.gaz};${item.grzalka};${dane}\n`;
     });
@@ -273,6 +264,7 @@
 
   // 🔹 Filtr po zakresie dat
   filterBtn.addEventListener('click', () => {
+    disableDiff = false;
     const startDate = filterStart.value ? new Date(filterStart.value) : null;
     const endDate = filterEnd.value ? new Date(filterEnd.value) : null;
     filteredList = dataList.filter(item => {
@@ -284,15 +276,16 @@
     renderTable();
   });
 
-  // 🔹 Filtr po miesiącu (niezależnie od roku)
+  // 🔹 Filtr po miesiącu (bez przeliczania różnic)
   monthFilterBtn.addEventListener('click', () => {
     const selectedMonth = monthFilter.value;
     if (selectedMonth === "") {
       alert("Wybierz miesiąc!");
       return;
     }
+    disableDiff = true; // wyłącz przeliczanie różnic
     filteredList = dataList.filter(item => {
-      const itemMonth = new Date(item.data).getMonth(); // 0–11
+      const itemMonth = new Date(item.data).getMonth();
       return itemMonth == selectedMonth;
     });
     renderTable();
@@ -301,13 +294,13 @@
   // 🔹 Wyczyść filtr
   clearFilterBtn.addEventListener('click', () => {
     filteredList = null;
+    disableDiff = false;
     filterStart.value = '';
     filterEnd.value = '';
     monthFilter.value = '';
     renderTable();
   });
 
-  // Uruchomienie
   wczytajZChmury();
 </script>
 
