@@ -111,13 +111,14 @@
   let dataList = [];
   let filteredList = null;
   let editId = null;
-  let disableDiff = false; // 🔹 flaga blokująca przeliczanie różnic
+  let disableDiff = false; // flaga blokująca przeliczanie różnic (używana jeśli chcesz "bez przeliczen")
 
   async function wczytajZChmury() {
     try {
       const res = await fetch(`${API_URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
       const json = await res.json();
       dataList = Array.isArray(json.record) ? json.record : (json.record || []);
+      // nadaj id jeśli brak (stare rekordy)
       dataList = dataList.map(item => item.id ? item : ({ ...item, id: Date.now() + Math.floor(Math.random()*1000) }));
       renderTable();
     } catch (err) {
@@ -142,6 +143,8 @@
   function renderTable() {
     tableBody.innerHTML = '';
     diffBody.innerHTML = '';
+
+    // sortujemy kopię listy (najnowsze pierwsze)
     const base = filteredList || dataList;
     const listToRender = base.slice().sort((a, b) => new Date(b.data) - new Date(a.data));
 
@@ -162,15 +165,17 @@
       tableBody.appendChild(row);
 
       let dane = "";
+      // jeśli disableDiff = true pokażemy po prostu wartości (bez różnic)
       if (!disableDiff && index > 0) {
         const prev = listToRender[index - 1];
+        // obliczamy różnice względem poprzedniego wiersza w widoku
         const diffGaz = (Number(item.gaz) - Number(prev.gaz)).toFixed(2);
         const diffGrzalka = (Number(item.grzalka) - Number(prev.grzalka)).toFixed(2);
         const diff180 = (Number(item.id180) - Number(prev.id180)).toFixed(2);
         const diff260 = (Number(item.id260) - Number(prev.id260)).toFixed(2);
         dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
       } else if (disableDiff) {
-        dane = `GAZ: ${item.gaz.toFixed(2)} | Grzałka: ${item.grzalka.toFixed(2)} | 180: ${item.id180.toFixed(2)} | 260: ${item.id260.toFixed(2)}`;
+        dane = `GAZ: ${Number(item.gaz).toFixed(2)} | Grzałka: ${Number(item.grzalka).toFixed(2)} | 180: ${Number(item.id180).toFixed(2)} | 260: ${Number(item.id260).toFixed(2)}`;
       }
 
       diffBody.innerHTML += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
@@ -187,6 +192,8 @@
       gaz: parseFloat(document.getElementById('gaz').value),
       grzalka: parseFloat(document.getElementById('grzalka').value)
     };
+
+    if (!newData.data) { alert("Wybierz datę."); return; }
 
     if (editId) {
       const idx = dataList.findIndex(d => d.id === editId);
@@ -251,7 +258,7 @@
         const diff260 = (Number(item.id260) - Number(prev.id260)).toFixed(2);
         dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
       } else if (disableDiff) {
-        dane = `GAZ: ${item.gaz.toFixed(2)} | Grzałka: ${item.grzalka.toFixed(2)} | 180: ${item.id180.toFixed(2)} | 260: ${item.id260.toFixed(2)}`;
+        dane = `GAZ: ${Number(item.gaz).toFixed(2)} | Grzałka: ${Number(item.grzalka).toFixed(2)} | 180: ${Number(item.id180).toFixed(2)} | 260: ${Number(item.id260).toFixed(2)}`;
       }
       csv += `${index + 1};${item.data};${item.id180};${item.id260};${item.gaz};${item.grzalka};${dane}\n`;
     });
@@ -262,7 +269,7 @@
     link.click();
   });
 
-  // 🔹 Filtr po zakresie dat
+  // Filtr po zakresie dat
   filterBtn.addEventListener('click', () => {
     disableDiff = false;
     const startDate = filterStart.value ? new Date(filterStart.value) : null;
@@ -276,22 +283,32 @@
     renderTable();
   });
 
-  // 🔹 Filtr po miesiącu (bez przeliczania różnic)
+  // Filtr po miesiącu — teraz: wybieramy wpisy tego miesiąca, potem bierzemy tylko najwyższy rok (najświeższy)
   monthFilterBtn.addEventListener('click', () => {
     const selectedMonth = monthFilter.value;
-    if (selectedMonth === "") {
-      alert("Wybierz miesiąc!");
+    if (selectedMonth === "") { alert("Wybierz miesiąc!"); return; }
+
+    // wszystkie wpisy z tego miesiąca (różne lata)
+    const allWithMonth = dataList.filter(item => new Date(item.data).getMonth() == selectedMonth);
+    if (allWithMonth.length === 0) {
+      alert("Brak wpisów dla wybranego miesiąca.");
       return;
     }
-    disableDiff = true; // wyłącz przeliczanie różnic
-    filteredList = dataList.filter(item => {
-      const itemMonth = new Date(item.data).getMonth();
-      return itemMonth == selectedMonth;
-    });
+
+    // znajdź najbardziej aktualny rok występujący w tym zbiorze
+    const years = allWithMonth.map(item => new Date(item.data).getFullYear());
+    const maxYear = Math.max(...years);
+
+    // filtrujemy tylko wpisy z wybranego miesiąca i z tego najbardziej aktualnego roku
+    filteredList = allWithMonth.filter(item => new Date(item.data).getFullYear() === maxYear);
+
+    // w tym trybie chcemy normalnych różnic (wewnątrz tego miesiąca), więc disableDiff = false
+    disableDiff = false;
+
     renderTable();
   });
 
-  // 🔹 Wyczyść filtr
+  // Wyczyść filtr
   clearFilterBtn.addEventListener('click', () => {
     filteredList = null;
     disableDiff = false;
