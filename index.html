@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tabela z danymi</title>
+<title>Tabela danych miesięcznych</title>
 <style>
   body { font-family: Arial, sans-serif; margin: 20px; background: #f7f7f7; }
   table { border-collapse: collapse; background: white; width: 100%; margin-bottom: 20px; }
-  th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: center; min-width: 70px; }
+  th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: center; }
   th { background-color: #eaeaea; }
   form { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 20px; }
   input, button, select { padding: 6px; }
@@ -18,17 +18,11 @@
   .edit-btn, .delete-btn { padding: 2px 5px; font-size: 10px; border-radius: 3px; }
   .edit-btn { background-color: #f0ad4e; color: white; }
   .delete-btn { background-color: #d9534f; color: white; }
-  #diffTable td { text-align: left; }
-  @media (max-width: 768px) {
-    table, th, td { font-size: 12px; padding: 4px; }
-    form { flex-direction: column; align-items: stretch; }
-    input, button { width: 100%; }
-  }
 </style>
 </head>
 <body>
 
-<h2>Dodaj dane do tabeli</h2>
+<h2>Tabela danych</h2>
 
 <form id="dataForm">
   <input type="date" id="data" required>
@@ -38,32 +32,30 @@
   <input type="number" id="grzalka" placeholder="Grzałka" step="0.01" required>
   <button type="submit" id="addBtn">Dodaj</button>
   <button type="button" id="clearAll">Wyczyść dane</button>
-  <button type="button" id="exportBtn">Eksportuj do CSV</button>
+  <button type="button" id="exportBtn">Eksportuj CSV</button>
 </form>
 
-<div id="filterContainer" style="margin-bottom: 20px;">
-  <label for="filterStart">Od daty:</label>
-  <input type="date" id="filterStart">
-  <label for="filterEnd">Do daty:</label>
-  <input type="date" id="filterEnd">
-  <button type="button" id="filterBtn">Filtruj zakres</button>
-
-  <hr style="margin:10px 0;">
-
+<div style="margin-bottom:20px;">
   <label for="monthFilter">Filtruj po miesiącu:</label>
   <select id="monthFilter">
     <option value="">-- wybierz miesiąc --</option>
-    <option value="0">Styczeń</option><option value="1">Luty</option><option value="2">Marzec</option>
-    <option value="3">Kwiecień</option><option value="4">Maj</option><option value="5">Czerwiec</option>
-    <option value="6">Lipiec</option><option value="7">Sierpień</option><option value="8">Wrzesień</option>
-    <option value="9">Październik</option><option value="10">Listopad</option><option value="11">Grudzień</option>
+    <option value="0">Styczeń</option>
+    <option value="1">Luty</option>
+    <option value="2">Marzec</option>
+    <option value="3">Kwiecień</option>
+    <option value="4">Maj</option>
+    <option value="5">Czerwiec</option>
+    <option value="6">Lipiec</option>
+    <option value="7">Sierpień</option>
+    <option value="8">Wrzesień</option>
+    <option value="9">Październik</option>
+    <option value="10">Listopad</option>
+    <option value="11">Grudzień</option>
   </select>
-
-  <button type="button" id="monthFilterBtn">Filtruj miesiąc</button>
+  <button type="button" id="monthFilterBtn">Filtruj</button>
   <button type="button" id="clearFilterBtn">Wyczyść filtr</button>
 </div>
 
-<!-- Główna tabela -->
 <table id="dataTable">
   <thead>
     <tr>
@@ -79,246 +71,143 @@
   <tbody></tbody>
 </table>
 
-<!-- Tabela różnicowa -->
 <table id="diffTable">
   <thead>
     <tr>
       <th>Data</th>
-      <th>Dane różnicowe</th>
+      <th>Dane różnicowe (oryginalne wartości)</th>
     </tr>
   </thead>
   <tbody></tbody>
 </table>
 
 <script>
-  const form = document.getElementById('dataForm');
-  const tableBody = document.querySelector('#dataTable tbody');
+const BIN_ID = "69064f4f43b1c97be9916a28";
+const API_KEY = "$2a$10$KvdpN6/53GdV2U00zsr2T.BoKtdLmYw8WFEnFXf1PKqSr9/QHMCJK";
+const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+let dataList = [];
+let filteredList = null;
+
+async function wczytajZChmury() {
+  try {
+    const res = await fetch(`${API_URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
+    const json = await res.json();
+    dataList = Array.isArray(json.record) ? json.record : (json.record || []);
+    renderTable();
+  } catch (err) {
+    console.error("Błąd wczytywania danych:", err);
+  }
+}
+
+async function zapiszDoChmury() {
+  try {
+    await fetch(API_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+      body: JSON.stringify(dataList)
+    });
+  } catch (err) {
+    console.error("Błąd zapisu do JSONBin:", err);
+  }
+}
+
+function renderTable() {
+  const base = filteredList || dataList;
+  const list = base.slice().sort((a, b) => new Date(b.data) - new Date(a.data));
+
+  const tbody = document.querySelector('#dataTable tbody');
   const diffBody = document.querySelector('#diffTable tbody');
-  const clearBtn = document.getElementById('clearAll');
-  const exportBtn = document.getElementById('exportBtn');
-  const addBtn = document.getElementById('addBtn');
-  const filterStart = document.getElementById('filterStart');
-  const filterEnd = document.getElementById('filterEnd');
-  const filterBtn = document.getElementById('filterBtn');
-  const monthFilter = document.getElementById('monthFilter');
-  const monthFilterBtn = document.getElementById('monthFilterBtn');
-  const clearFilterBtn = document.getElementById('clearFilterBtn');
+  tbody.innerHTML = '';
+  diffBody.innerHTML = '';
 
-  const BIN_ID = "69064f4f43b1c97be9916a28";
-  const API_KEY = "$2a$10$KvdpN6/53GdV2U00zsr2T.BoKtdLmYw8WFEnFXf1PKqSr9/QHMCJK";
-  const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+  list.forEach((item, i) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${item.data}</td>
+      <td>${item.id180}</td>
+      <td>${item.id260}</td>
+      <td>${item.gaz}</td>
+      <td>${item.grzalka}</td>
+      <td>
+        <button class="edit-btn" onclick="editRow('${item.id}')">✏️</button>
+        <button class="delete-btn" onclick="deleteRow('${item.id}')">🗑️</button>
+      </td>`;
+    tbody.appendChild(row);
 
-  let dataList = [];
-  let filteredList = null;
-  let editId = null;
-  let disableDiff = false; // flaga blokująca przeliczanie różnic (używana jeśli chcesz "bez przeliczen")
-
-  async function wczytajZChmury() {
-    try {
-      const res = await fetch(`${API_URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
-      const json = await res.json();
-      dataList = Array.isArray(json.record) ? json.record : (json.record || []);
-      // nadaj id jeśli brak (stare rekordy)
-      dataList = dataList.map(item => item.id ? item : ({ ...item, id: Date.now() + Math.floor(Math.random()*1000) }));
-      renderTable();
-    } catch (err) {
-      console.error("Błąd wczytywania z JSONBin:", err);
-      dataList = [];
-      renderTable();
-    }
-  }
-
-  async function zapiszDoChmury() {
-    try {
-      await fetch(API_URL, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
-        body: JSON.stringify(dataList)
-      });
-    } catch (err) {
-      console.error("Błąd zapisu do JSONBin:", err);
-    }
-  }
-
-  function renderTable() {
-    tableBody.innerHTML = '';
-    diffBody.innerHTML = '';
-
-    // sortujemy kopię listy (najnowsze pierwsze)
-    const base = filteredList || dataList;
-    const listToRender = base.slice().sort((a, b) => new Date(b.data) - new Date(a.data));
-
-    listToRender.forEach((item, index) => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${index + 1}</td>
-        <td>${item.data}</td>
-        <td>${Number(item.id180).toFixed(2)}</td>
-        <td>${Number(item.id260).toFixed(2)}</td>
-        <td>${Number(item.gaz).toFixed(2)}</td>
-        <td>${Number(item.grzalka).toFixed(2)}</td>
-        <td>
-          <button class="edit-btn" onclick="editRow('${item.id}')">✏️</button>
-          <button class="delete-btn" onclick="deleteRow('${item.id}')">🗑️</button>
-        </td>
-      `;
-      tableBody.appendChild(row);
-
-      let dane = "";
-      // jeśli disableDiff = true pokażemy po prostu wartości (bez różnic)
-      if (!disableDiff && index > 0) {
-        const prev = listToRender[index - 1];
-        // obliczamy różnice względem poprzedniego wiersza w widoku
-        const diffGaz = (Number(item.gaz) - Number(prev.gaz)).toFixed(2);
-        const diffGrzalka = (Number(item.grzalka) - Number(prev.grzalka)).toFixed(2);
-        const diff180 = (Number(item.id180) - Number(prev.id180)).toFixed(2);
-        const diff260 = (Number(item.id260) - Number(prev.id260)).toFixed(2);
-        dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
-      } else if (disableDiff) {
-        dane = `GAZ: ${Number(item.gaz).toFixed(2)} | Grzałka: ${Number(item.grzalka).toFixed(2)} | 180: ${Number(item.id180).toFixed(2)} | 260: ${Number(item.id260).toFixed(2)}`;
-      }
-
-      diffBody.innerHTML += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
-    });
-  }
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const newData = {
-      id: editId || (Date.now() + Math.floor(Math.random()*1000)),
-      data: document.getElementById('data').value,
-      id180: parseFloat(document.getElementById('id180').value),
-      id260: parseFloat(document.getElementById('id260').value),
-      gaz: parseFloat(document.getElementById('gaz').value),
-      grzalka: parseFloat(document.getElementById('grzalka').value)
-    };
-
-    if (!newData.data) { alert("Wybierz datę."); return; }
-
-    if (editId) {
-      const idx = dataList.findIndex(d => d.id === editId);
-      if (idx !== -1) dataList[idx] = newData;
-      editId = null;
-      addBtn.textContent = "Dodaj";
-    } else {
-      dataList.push(newData);
-    }
-
-    await zapiszDoChmury();
-    filteredList = null;
-    disableDiff = false;
-    renderTable();
-    form.reset();
+    diffBody.innerHTML += `
+      <tr><td>${item.data}</td>
+      <td>GAZ: ${item.gaz} | Grzałka: ${item.grzalka} | 180: ${item.id180} | 260: ${item.id260}</td></tr>`;
   });
+}
 
-  window.editRow = (id) => {
-    const item = dataList.find(d => String(d.id) === String(id));
-    if (!item) return alert("Nie znaleziono wiersza do edycji.");
-    document.getElementById('data').value = item.data;
-    document.getElementById('id180').value = item.id180;
-    document.getElementById('id260').value = item.id260;
-    document.getElementById('gaz').value = item.gaz;
-    document.getElementById('grzalka').value = item.grzalka;
-    editId = item.id;
-    addBtn.textContent = "Zapisz zmiany";
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+// Dodawanie danych
+document.getElementById('dataForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const newItem = {
+    id: Date.now(),
+    data: document.getElementById('data').value,
+    id180: parseFloat(document.getElementById('id180').value),
+    id260: parseFloat(document.getElementById('id260').value),
+    gaz: parseFloat(document.getElementById('gaz').value),
+    grzalka: parseFloat(document.getElementById('grzalka').value)
   };
+  dataList.push(newItem);
+  await zapiszDoChmury();
+  filteredList = null;
+  renderTable();
+  e.target.reset();
+});
 
-  window.deleteRow = async (id) => {
-    if (!confirm("Czy na pewno chcesz usunąć ten wiersz?")) return;
-    const idx = dataList.findIndex(d => String(d.id) === String(id));
-    if (idx !== -1) {
-      dataList.splice(idx, 1);
-      await zapiszDoChmury();
-      renderTable();
-    }
-  };
+// Edycja i usuwanie
+window.editRow = (id) => {
+  const item = dataList.find(i => i.id == id);
+  if (!item) return;
+  document.getElementById('data').value = item.data;
+  document.getElementById('id180').value = item.id180;
+  document.getElementById('id260').value = item.id260;
+  document.getElementById('gaz').value = item.gaz;
+  document.getElementById('grzalka').value = item.grzalka;
+};
 
-  clearBtn.addEventListener('click', async () => {
-    if (confirm('Czy na pewno chcesz usunąć wszystkie dane?')) {
-      dataList = [];
-      await zapiszDoChmury();
-      filteredList = null;
-      disableDiff = false;
-      renderTable();
-    }
+window.deleteRow = async (id) => {
+  if (!confirm("Usunąć wpis?")) return;
+  dataList = dataList.filter(i => i.id != id);
+  await zapiszDoChmury();
+  renderTable();
+};
+
+// Filtr miesiąca (bez przeliczeń!)
+document.getElementById('monthFilterBtn').addEventListener('click', () => {
+  const m = document.getElementById('monthFilter').value;
+  if (m === "") return alert("Wybierz miesiąc!");
+  filteredList = dataList.filter(d => new Date(d.data).getMonth() == m);
+  renderTable();
+});
+
+// Wyczyść filtr
+document.getElementById('clearFilterBtn').addEventListener('click', () => {
+  filteredList = null;
+  document.getElementById('monthFilter').value = "";
+  renderTable();
+});
+
+// Eksport CSV
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const base = filteredList || dataList;
+  const csv = ["Lp;Data;ID 180;ID 260;GAZ;Grzałka"];
+  base.forEach((item, i) => {
+    csv.push(`${i + 1};${item.data};${item.id180};${item.id260};${item.gaz};${item.grzalka}`);
   });
+  const blob = new Blob([csv.join("\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "dane.csv";
+  a.click();
+});
 
-  exportBtn.addEventListener('click', () => {
-    const base = filteredList || dataList;
-    const listToExport = base.slice().sort((a, b) => new Date(b.data) - new Date(a.data));
-    let csv = "Lp;Data;ID 180;ID 260;GAZ;Grzałka;Dane różnicowe\n";
-    listToExport.forEach((item, index) => {
-      let dane = "";
-      if (!disableDiff && index > 0) {
-        const prev = listToExport[index - 1];
-        const diffGaz = (Number(item.gaz) - Number(prev.gaz)).toFixed(2);
-        const diffGrzalka = (Number(item.grzalka) - Number(prev.grzalka)).toFixed(2);
-        const diff180 = (Number(item.id180) - Number(prev.id180)).toFixed(2);
-        const diff260 = (Number(item.id260) - Number(prev.id260)).toFixed(2);
-        dane = `GAZ: ${diffGaz} | Grzałka: ${diffGrzalka} | 180: ${diff180} | 260: ${diff260}`;
-      } else if (disableDiff) {
-        dane = `GAZ: ${Number(item.gaz).toFixed(2)} | Grzałka: ${Number(item.grzalka).toFixed(2)} | 180: ${Number(item.id180).toFixed(2)} | 260: ${Number(item.id260).toFixed(2)}`;
-      }
-      csv += `${index + 1};${item.data};${item.id180};${item.id260};${item.gaz};${item.grzalka};${dane}\n`;
-    });
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "tabela_danych.csv";
-    link.click();
-  });
-
-  // Filtr po zakresie dat
-  filterBtn.addEventListener('click', () => {
-    disableDiff = false;
-    const startDate = filterStart.value ? new Date(filterStart.value) : null;
-    const endDate = filterEnd.value ? new Date(filterEnd.value) : null;
-    filteredList = dataList.filter(item => {
-      const itemDate = new Date(item.data);
-      if (startDate && itemDate < startDate) return false;
-      if (endDate && itemDate > endDate) return false;
-      return true;
-    });
-    renderTable();
-  });
-
-  // Filtr po miesiącu — teraz: wybieramy wpisy tego miesiąca, potem bierzemy tylko najwyższy rok (najświeższy)
-  monthFilterBtn.addEventListener('click', () => {
-    const selectedMonth = monthFilter.value;
-    if (selectedMonth === "") { alert("Wybierz miesiąc!"); return; }
-
-    // wszystkie wpisy z tego miesiąca (różne lata)
-    const allWithMonth = dataList.filter(item => new Date(item.data).getMonth() == selectedMonth);
-    if (allWithMonth.length === 0) {
-      alert("Brak wpisów dla wybranego miesiąca.");
-      return;
-    }
-
-    // znajdź najbardziej aktualny rok występujący w tym zbiorze
-    const years = allWithMonth.map(item => new Date(item.data).getFullYear());
-    const maxYear = Math.max(...years);
-
-    // filtrujemy tylko wpisy z wybranego miesiąca i z tego najbardziej aktualnego roku
-    filteredList = allWithMonth.filter(item => new Date(item.data).getFullYear() === maxYear);
-
-    // w tym trybie chcemy normalnych różnic (wewnątrz tego miesiąca), więc disableDiff = false
-    disableDiff = false;
-
-    renderTable();
-  });
-
-  // Wyczyść filtr
-  clearFilterBtn.addEventListener('click', () => {
-    filteredList = null;
-    disableDiff = false;
-    filterStart.value = '';
-    filterEnd.value = '';
-    monthFilter.value = '';
-    renderTable();
-  });
-
-  wczytajZChmury();
+wczytajZChmury();
 </script>
 
 </body>
