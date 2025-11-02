@@ -1,32 +1,26 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Tabela z danymi — filtr miesiąca (różnice rok do roku vs poprzedni miesiąc)</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Porównanie miesiąc vs poprzedni miesiąc (per rok)</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; background:#f7f7f7; }
-  table { border-collapse: collapse; background: white; width: 100%; margin-bottom: 20px; }
-  th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: center; min-width: 80px; }
-  th { background: #eaeaea; }
-  form { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; align-items:center; }
-  input, select, button { padding:6px; }
-  button { border-radius:6px; border:none; cursor:pointer; }
-  #addBtn{background:#0078d4;color:#fff}
-  #clearAll{background:#d9534f;color:#fff}
-  #exportBtn{background:#5cb85c;color:#fff}
-  .edit-btn{background:#f0ad4e;color:#fff;padding:4px 6px;border-radius:4px}
-  .delete-btn{background:#d9534f;color:#fff;padding:4px 6px;border-radius:4px}
-  #diffTable td{ text-align:left; }
-  @media(max-width:768px){
-    form{flex-direction:column;align-items:stretch}
-    input,select,button{width:100%}
-  }
+  body{font-family:Arial,sans-serif;margin:18px;background:#f7f7f7}
+  table{border-collapse:collapse;background:#fff;width:100%;margin-bottom:16px}
+  th,td{border:1px solid #ccc;padding:8px 10px;text-align:center}
+  th{background:#eee}
+  form{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  input,select,button{padding:6px}
+  button{border-radius:6px;border:none;cursor:pointer}
+  .btn-primary{background:#0078d4;color:#fff}
+  .btn-danger{background:#d9534f;color:#fff}
+  .small{font-size:13px}
+  #diffTable td{text-align:left}
 </style>
 </head>
 <body>
 
-<h2>Dodaj dane do tabeli</h2>
+<h2>Filtr miesiąca — porównanie: miesiąc vs poprzedni miesiąc (w tym samym roku)</h2>
 
 <form id="dataForm">
   <input type="date" id="data" required>
@@ -34,23 +28,14 @@
   <input type="number" id="id260" placeholder="ID 260" step="0.01" required>
   <input type="number" id="gaz" placeholder="GAZ" step="0.01" required>
   <input type="number" id="grzalka" placeholder="Grzałka" step="0.01" required>
-  <button type="submit" id="addBtn">Dodaj</button>
-  <button type="button" id="clearAll">Wyczyść dane</button>
-  <button type="button" id="exportBtn">Eksportuj do CSV</button>
+  <button class="btn-primary" type="submit" id="addBtn">Dodaj</button>
+  <button class="btn-danger" type="button" id="clearAll">Wyczyść wszystkie</button>
 </form>
 
-<div style="margin-bottom:16px;">
-  <label for="filterStart">Od daty:</label>
-  <input type="date" id="filterStart">
-  <label for="filterEnd">Do daty:</label>
-  <input type="date" id="filterEnd">
-  <button id="filterBtn" type="button">Filtruj zakres</button>
-</div>
-
-<div style="margin-bottom:20px;">
-  <label for="monthFilter">Filtruj po miesiącu (porównanie: <strong>miesiąc vs poprzedni miesiąc tego samego roku</strong>):</label>
+<div style="margin-bottom:12px">
+  <label for="monthFilter">Wybierz miesiąc:</label>
   <select id="monthFilter">
-    <option value="">-- wybierz miesiąc --</option>
+    <option value="">-- wybierz --</option>
     <option value="0">Styczeń</option><option value="1">Luty</option><option value="2">Marzec</option>
     <option value="3">Kwiecień</option><option value="4">Maj</option><option value="5">Czerwiec</option>
     <option value="6">Lipiec</option><option value="7">Sierpień</option><option value="8">Wrzesień</option>
@@ -60,79 +45,60 @@
   <button id="clearFilterBtn" type="button">Wyczyść filtr</button>
 </div>
 
-<!-- Główna tabela -->
 <table id="dataTable">
   <thead>
-    <tr>
-      <th>Lp</th>
-      <th>Data</th>
-      <th>ID 180</th>
-      <th>ID 260</th>
-      <th>GAZ</th>
-      <th>Grzałka</th>
-      <th>Akcje</th>
-    </tr>
+    <tr><th>Lp</th><th>Data</th><th>ID180</th><th>ID260</th><th>GAZ</th><th>Grzałka</th><th>Akcje</th></tr>
   </thead>
   <tbody></tbody>
 </table>
 
-<!-- Tabela różnicowa -->
+<h3>Tabela różnicowa (miesiąc vs poprzedni miesiąc, per rok)</h3>
 <table id="diffTable">
-  <thead>
-    <tr>
-      <th>Rok / Miesiąc</th>
-      <th>Dane różnicowe (miesiąc vs poprzedni miesiąc w tym samym roku)</th>
-    </tr>
-  </thead>
+  <thead><tr><th>Rok</th><th>Opis</th></tr></thead>
   <tbody></tbody>
 </table>
 
 <script>
-/* CONFIG — zachowaj swoje wartości */
+/* ---------- KONFIGURACJA (zachowaj swoje wartości) ---------- */
 const BIN_ID = "69064f4f43b1c97be9916a28";
 const API_KEY = "$2a$10$KvdpN6/53GdV2U00zsr2T.BoKtdLmYw8WFEnFXf1PKqSr9/QHMCJK";
 const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
-/* STAN */
-let dataList = [];        // wszystkie rekordy
-let filteredList = null;  // lista filtrowana (zakres dat) — używana w normalnym widoku
-let monthMode = false;    // true = aktywny filtr miesiąca specjalny
-let monthSelected = null; // numeric 0..11 kiedy monthMode = true
+/* ---------- STAN ---------- */
+let dataList = [];      // wszystkie rekordy
+let monthMode = false;
+let monthSelected = null;
 
-/* ELEMENTY */
+/* ---------- ELEMENTY ---------- */
 const tbody = document.querySelector('#dataTable tbody');
 const diffBody = document.querySelector('#diffTable tbody');
 const form = document.getElementById('dataForm');
-const addBtn = document.getElementById('addBtn');
 const clearAllBtn = document.getElementById('clearAll');
-const exportBtn = document.getElementById('exportBtn');
-const filterStart = document.getElementById('filterStart');
-const filterEnd = document.getElementById('filterEnd');
-const filterBtn = document.getElementById('filterBtn');
 const monthFilter = document.getElementById('monthFilter');
 const monthFilterBtn = document.getElementById('monthFilterBtn');
 const clearFilterBtn = document.getElementById('clearFilterBtn');
+const addBtn = document.getElementById('addBtn');
 
-/* Helpers */
-const parseDate = d => new Date(d + 'T00:00:00'); // bez strefowych niespodzianek
+/* ---------- HELPERS ---------- */
+const parseDate = s => new Date(s + 'T00:00:00'); // unikamy problemów ze strefami
+const fmt = n => Number(n).toFixed(2);
 const pad2 = n => String(n).padStart(2,'0');
 
-/* Wczytaj dane z JSONBin (jeśli nie chcesz chmury — możesz pominąć wywołania) */
+/* ---------- Wczytanie / zapis (JSONBin) ---------- */
 async function wczytajZChmury(){
   try{
-    const res = await fetch(`${API_URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
-    const json = await res.json();
-    dataList = Array.isArray(json.record) ? json.record : (json.record || []);
-    // jeśli brak id w rekordach, nadaj losowe id
-    dataList = dataList.map(item => item.id ? item : ({ ...item, id: Date.now() + Math.floor(Math.random()*1000) }));
+    const r = await fetch(`${API_URL}/latest`, { headers: { "X-Master-Key": API_KEY } });
+    const j = await r.json();
+    dataList = Array.isArray(j.record) ? j.record : (j.record || []);
+    // dodaj id jeżeli brak
+    dataList = dataList.map(it => it.id ? it : ({ ...it, id: Date.now() + Math.floor(Math.random()*1000) }));
   }catch(e){
-    console.error("Błąd wczytywania z JSONBin:", e);
+    console.warn("Błąd wczytania (JSONBin):", e);
     dataList = dataList || [];
   }
   renderTable();
 }
 
-/* Zapisz do chmury */
 async function zapiszDoChmury(){
   try{
     await fetch(API_URL, {
@@ -140,161 +106,118 @@ async function zapiszDoChmury(){
       headers: { "Content-Type":"application/json", "X-Master-Key": API_KEY },
       body: JSON.stringify(dataList)
     });
-  }catch(e){ console.error("Błąd zapisu:", e); }
+  }catch(e){ console.warn("Błąd zapisu:", e); }
 }
 
-/* Render — dwa tryby:
-   - monthMode = false : normalny widok — wyświetl wszystkie rekordy (filteredList || dataList),
-                         posortowane od najnowszych i oblicz różnice względem poprzedniego w widoku
-   - monthMode = true  : specjalny widok dla wybranego miesiąca (monthSelected):
-                         pokaż po jednym wierszu na każdy rok: różnica (miesiąc - poprzedni miesiąc tego samego roku)
-*/
+/* ---------- RENDER ---------- */
 function renderTable(){
   tbody.innerHTML = '';
   diffBody.innerHTML = '';
 
   if(!monthMode){
-    // normalny widok
-    const base = filteredList || dataList;
-    const list = base.slice().sort((a,b)=> new Date(b.data) - new Date(a.data)); // najnowsze pierwsze
-
-    list.forEach((item, idx) => {
+    // normalny widok: pokaż wszystkie rekordy posortowane DESC
+    const list = dataList.slice().sort((a,b)=> new Date(b.data) - new Date(a.data));
+    list.forEach((it, i) => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${idx+1}</td>
-        <td>${item.data}</td>
-        <td>${Number(item.id180).toFixed(2)}</td>
-        <td>${Number(item.id260).toFixed(2)}</td>
-        <td>${Number(item.gaz).toFixed(2)}</td>
-        <td>${Number(item.grzalka).toFixed(2)}</td>
-        <td>
-          <button class="edit-btn" onclick="startEdit('${item.id}')">✏️</button>
-          <button class="delete-btn" onclick="deleteRow('${item.id}')">🗑️</button>
-        </td>
-      `;
+      tr.innerHTML = `<td>${i+1}</td>
+        <td>${it.data}</td>
+        <td>${fmt(it.id180)}</td>
+        <td>${fmt(it.id260)}</td>
+        <td>${fmt(it.gaz)}</td>
+        <td>${fmt(it.grzalka)}</td>
+        <td><button onclick="startEdit('${it.id}')">✏️</button> <button onclick="deleteRow('${it.id}')">🗑️</button></td>`;
       tbody.appendChild(tr);
-
-      // różnice liczone względem poprzedniego w widoku (posortowanego)
-      let dane = '';
-      if(idx > 0){
-        const prev = list[idx-1];
-        const dg = (Number(item.gaz) - Number(prev.gaz)).toFixed(2);
-        const dr = (Number(item.grzalka) - Number(prev.grzalka)).toFixed(2);
-        const d180 = (Number(item.id180) - Number(prev.id180)).toFixed(2);
-        const d260 = (Number(item.id260) - Number(prev.id260)).toFixed(2);
-        dane = `GAZ: ${dg} | Grzałka: ${dr} | 180: ${d180} | 260: ${d260}`;
-      }
-      diffBody.innerHTML += `<tr><td>${item.data}</td><td>${dane}</td></tr>`;
     });
-
-  } else {
-    // monthMode: dla wybranego miesiąca zwracamy jedną linię na rok:
-    // najpierw zgrupuj wszystkie rekordy według roku dla wybranego miesiąca i dla poprzedniego miesiąca
-    const m = Number(monthSelected); // 0..11
-    // zbuduj mapę: year -> { cur: rekord dla month m (jeśli jest), prev: rekord dla month m-1 (jeśli jest)}
-    const map = new Map();
-    dataList.forEach(item => {
-      const dt = parseDate(item.data);
-      const mm = dt.getMonth();
-      const yy = dt.getFullYear();
-      if(mm === m || mm === ((m+11)%12)){ // mm === m (current month) OR mm === m-1 (previous month, handles january->dec)
-        if(!map.has(yy)) map.set(yy, { cur: null, prev: null });
-        const bucket = map.get(yy);
-        if(mm === m) bucket.cur = item;
-        else if (mm === ((m+11)%12)) bucket.prev = item;
-      }
-    });
-
-    // Important: for months where current month is Jan (0), prev month is Dec of same YEAR — that's OK per requirement.
-    // Now convert map to array and sort by year desc
-    const rows = Array.from(map.entries())
-      .sort((a,b)=> b[0] - a[0]); // [ [year, {cur,prev}], ... ]
-
-    // If there are years where prev is in DEC of previous year (e.g., current month = Jan, prev = Dec but previous year),
-    // we should also consider prev from year-1. So handle that: for month m, prev month is m-1 — if m==0, prev month is 11 and belongs to year-1.
-    // We'll rebuild rows more carefully to include that.
-    const yearsSet = new Set();
-    dataList.forEach(item => yearsSet.add(parseDate(item.data).getFullYear()));
-    const years = Array.from(yearsSet).sort((a,b)=> b - a);
-
-    const processed = []; // { year, cur, prev }
-    years.forEach(year => {
-      // find cur: record with month==m and year==year
-      const cur = dataList.find(it => {
-        const dt = parseDate(it.data);
-        return dt.getFullYear() === year && dt.getMonth() === m;
-      });
-      // find prev: if m>0 then prev month same year else m==0 -> prev month 11 in year-1
-      let prev = null;
-      if(m > 0){
-        prev = dataList.find(it => {
-          const dt = parseDate(it.data);
-          return dt.getFullYear() === year && dt.getMonth() === (m-1);
-        });
-      } else {
-        // m == 0 -> prev is month 11 in year-1
-        prev = dataList.find(it => {
-          const dt = parseDate(it.data);
-          return dt.getFullYear() === (year-1) && dt.getMonth() === 11;
-        });
-      }
-      // Only include if cur exists (we want rows for years where chosen month exists)
-      if(cur){
-        processed.push({ year, cur, prev });
-      }
-    });
-
-    // Render processed list (sorted desc by year)
-    processed.forEach((itemObj, idx) => {
-      const { year, cur, prev } = itemObj;
-      // main table: show the current month record (cur) — date field is cur.data
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${idx+1}</td>
-        <td>${cur.data}</td>
-        <td>${Number(cur.id180).toFixed(2)}</td>
-        <td>${Number(cur.id260).toFixed(2)}</td>
-        <td>${Number(cur.gaz).toFixed(2)}</td>
-        <td>${Number(cur.grzalka).toFixed(2)}</td>
-        <td>
-          <button class="edit-btn" onclick="startEdit('${cur.id}')">✏️</button>
-          <button class="delete-btn" onclick="deleteRow('${cur.id}')">🗑️</button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-
-      // diff calculation: cur - prev (same year, prev month). If prev missing -> show info.
-      let dane = '';
-      if(prev){
-        const dg = (Number(cur.gaz) - Number(prev.gaz)).toFixed(2);
-        const dr = (Number(cur.grzalka) - Number(prev.grzalka)).toFixed(2);
-        const d180 = (Number(cur.id180) - Number(prev.id180)).toFixed(2);
-        const d260 = (Number(cur.id260) - Number(prev.id260)).toFixed(2);
-        // show which months are compared: e.g. 2025-07 vs 2025-06 (format)
-        const curLabel = `${year}-${pad2(m+1)}`;
-        let prevLabel;
-        if(m > 0) prevLabel = `${year}-${pad2(m)}`;
-        else prevLabel = `${year-1}-${pad2(12)}`;
-        dane = `${curLabel} vs ${prevLabel} → GAZ: ${dg} | Grzałka: ${dr} | 180: ${d180} | 260: ${d260}`;
-      } else {
-        dane = 'Brak danych poprzedniego miesiąca (brak wpisu)';
-      }
-      diffBody.innerHTML += `<tr><td>${year}</td><td>${dane}</td></tr>`;
-    });
-
-    // If processed is empty, show info
-    if(processed.length === 0){
-      tbody.innerHTML = `<tr><td colspan="7">Brak wpisów dla wybranego miesiąca.</td></tr>`;
-      diffBody.innerHTML = `<tr><td colspan="2">Brak danych do porównania.</td></tr>`;
-    }
+    // w normalnym widoku nic w diffBody (albo możesz chcieć tam obliczeń — nie robię ich teraz)
+    diffBody.innerHTML = '<tr><td colspan="2" class="small">Przełącz na filtr miesiąca, aby zobaczyć porównania miesiąc vs poprzedni miesiąc (per rok).</td></tr>';
+    return;
   }
+
+  /* ---------- monthMode = true ---------- */
+  const m = Number(monthSelected); // 0..11
+  // Zbierz listę lat, dla których istnieje wpis w miesiącu m (chcemy wiersz per rok gdy mamy cur)
+  const yearsSet = new Set();
+  dataList.forEach(item => {
+    const dt = parseDate(item.data);
+    if(dt.getMonth() === m) yearsSet.add(dt.getFullYear());
+  });
+  const years = Array.from(yearsSet).sort((a,b)=> b - a); // sort desc
+
+  if(years.length === 0){
+    tbody.innerHTML = `<tr><td colspan="7">Brak wpisów dla wybranego miesiąca.</td></tr>`;
+    diffBody.innerHTML = `<tr><td colspan="2">Brak danych do porównania.</td></tr>`;
+    return;
+  }
+
+  // Dla każdego roku znajdź: cur = NAJPOŹNIEJSZY wpis w tym roku i miesiącu m
+  //                   prev = NAJPOŹNIEJSZY wpis w tym roku i miesiącu m-1 (jeśli m>0)
+  //                          lub jeśli m==0 -> prev = NAJPOŹNIEJSZY wpis w roku-1 i miesiącu 11
+  const processed = years.map(year => {
+    // cur candidates: month == m and year == year
+    const curCandidates = dataList.filter(it => {
+      const dt = parseDate(it.data);
+      return dt.getFullYear() === year && dt.getMonth() === m;
+    });
+    // pick latest by date
+    let cur = null;
+    if(curCandidates.length) cur = curCandidates.reduce((a,b) => new Date(a.data) > new Date(b.data) ? a : b);
+
+    // prev candidate:
+    let prev = null;
+    if(m > 0){
+      const prevC = dataList.filter(it => {
+        const dt = parseDate(it.data);
+        return dt.getFullYear() === year && dt.getMonth() === (m-1);
+      });
+      if(prevC.length) prev = prevC.reduce((a,b) => new Date(a.data) > new Date(b.data) ? a : b);
+    } else {
+      // m == 0 -> previous month is December of previous year
+      const prevC = dataList.filter(it => {
+        const dt = parseDate(it.data);
+        return dt.getFullYear() === (year - 1) && dt.getMonth() === 11;
+      });
+      if(prevC.length) prev = prevC.reduce((a,b) => new Date(a.data) > new Date(b.data) ? a : b);
+    }
+    return { year, cur, prev };
+  });
+
+  // Render głównej tabeli: pokaż cur (ostatni wpis wybranego miesiąca) dla każdego roku
+  processed.forEach((p, idx) => {
+    if(!p.cur) return; // nie powinniśmy tu trafiać, bo years bazowaliśmy na cur istniejącym
+    const it = p.cur;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${idx+1}</td>
+      <td>${it.data}</td>
+      <td>${fmt(it.id180)}</td>
+      <td>${fmt(it.id260)}</td>
+      <td>${fmt(it.gaz)}</td>
+      <td>${fmt(it.grzalka)}</td>
+      <td><button onclick="startEdit('${it.id}')">✏️</button> <button onclick="deleteRow('${it.id}')">🗑️</button></td>`;
+    tbody.appendChild(tr);
+
+    // Oblicz różnicę cur - prev (jeżeli prev istnieje)
+    let opis = '';
+    if(p.prev){
+      const curLabel = p.cur.data;
+      const prevLabel = p.prev.data;
+      const dg = (Number(p.cur.gaz) - Number(p.prev.gaz)).toFixed(2);
+      const dr = (Number(p.cur.grzalka) - Number(p.prev.grzalka)).toFixed(2);
+      const d180 = (Number(p.cur.id180) - Number(p.prev.id180)).toFixed(2);
+      const d260 = (Number(p.cur.id260) - Number(p.prev.id260)).toFixed(2);
+      opis = `${curLabel} vs ${prevLabel} → GAZ: ${dg} | Grzałka: ${dr} | 180: ${d180} | 260: ${d260}`;
+    } else {
+      opis = 'Brak danych poprzedniego miesiąca (brak wpisu)';
+    }
+    diffBody.innerHTML += `<tr><td>${p.year}</td><td>${opis}</td></tr>`;
+  });
+
 }
 
-/* Dodawanie / edycja / usuwanie */
+/* ---------- Dodawanie / edycja / usuwanie ---------- */
 let editId = null;
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const item = {
+  const newItem = {
     id: editId || (Date.now() + Math.floor(Math.random()*1000)),
     data: document.getElementById('data').value,
     id180: Number(document.getElementById('id180').value),
@@ -304,14 +227,13 @@ form.addEventListener('submit', async (e) => {
   };
   if(editId){
     const idx = dataList.findIndex(x => String(x.id) === String(editId));
-    if(idx !== -1) dataList[idx] = item;
+    if(idx !== -1) dataList[idx] = newItem;
     editId = null;
     addBtn.textContent = 'Dodaj';
   } else {
-    dataList.push(item);
+    dataList.push(newItem);
   }
   await zapiszDoChmury();
-  filteredList = null;
   monthMode = false;
   monthSelected = null;
   monthFilter.value = '';
@@ -319,7 +241,7 @@ form.addEventListener('submit', async (e) => {
   form.reset();
 });
 
-function startEdit(id){
+window.startEdit = (id) => {
   const it = dataList.find(x => String(x.id) === String(id));
   if(!it) return alert('Nie znaleziono rekordu');
   document.getElementById('data').value = it.data;
@@ -329,7 +251,7 @@ function startEdit(id){
   document.getElementById('grzalka').value = it.grzalka;
   editId = it.id;
   addBtn.textContent = 'Zapisz zmiany';
-}
+};
 
 async function deleteRow(id){
   if(!confirm('Usunąć wpis?')) return;
@@ -339,82 +261,34 @@ async function deleteRow(id){
   renderTable();
 }
 
-/* Clear all */
 clearAllBtn.addEventListener('click', async () => {
-  if(!confirm('Usunąć wszystkie dane?')) return;
+  if(!confirm('Usunąć wszystkie wpisy?')) return;
   dataList = [];
   await zapiszDoChmury();
-  filteredList = null;
   monthMode = false;
   monthSelected = null;
   monthFilter.value = '';
   renderTable();
 });
 
-/* Filtr po zakresie dat (normalny tryb) */
-filterBtn.addEventListener('click', () => {
-  monthMode = false;
-  monthSelected = null;
-  const s = filterStart.value ? parseDate(filterStart.value) : null;
-  const e = filterEnd.value ? parseDate(filterEnd.value) : null;
-  filteredList = dataList.filter(it => {
-    const dt = parseDate(it.data);
-    if(s && dt < s) return false;
-    if(e && dt > e) return false;
-    return true;
-  });
-  renderTable();
-});
-
-/* Filtr miesiąca (special mode) — obliczamy dla każdego roku różnicę: month vs previous month in same year */
+/* ---------- Filtry ---------- */
 monthFilterBtn.addEventListener('click', () => {
   const m = monthFilter.value;
-  if(m === '') { alert('Wybierz miesiąc'); return; }
+  if(m === '') return alert('Wybierz miesiąc');
   monthMode = true;
   monthSelected = Number(m);
-  // disable filteredList (we use monthMode)
-  filteredList = null;
   renderTable();
 });
 
-/* Wyczyść filtr */
 clearFilterBtn.addEventListener('click', () => {
-  filteredList = null;
   monthMode = false;
   monthSelected = null;
-  filterStart.value = '';
-  filterEnd.value = '';
   monthFilter.value = '';
   renderTable();
 });
 
-/* Eksport CSV — eksportuje aktualny widok (miesięczny lub normalny) */
-exportBtn.addEventListener('click', () => {
-  if(!monthMode){
-    const base = filteredList || dataList;
-    const list = base.slice().sort((a,b)=> new Date(b.data) - new Date(a.data));
-    const lines = ['Lp;Data;ID180;ID260;GAZ;Grzalka'];
-    list.forEach((it,i) => lines.push(`${i+1};${it.data};${Number(it.id180).toFixed(2)};${Number(it.id260).toFixed(2)};${Number(it.gaz).toFixed(2)};${Number(it.grzalka).toFixed(2)}`));
-    const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'dane.csv'; a.click();
-  } else {
-    // monthMode export: export the diffBody table rows (year + computed string)
-    const rows = Array.from(diffBody.querySelectorAll('tr'));
-    const lines = ['Rok;Opis różnicy (miesiąc vs poprzedni miesiąc)'];
-    rows.forEach(r => {
-      const cols = r.querySelectorAll('td');
-      if(cols.length >= 2){
-        lines.push(`${cols[0].textContent};${cols[1].textContent.replace(/;/g,',')}`);
-      }
-    });
-    const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'dane_miesieczne_roznice.csv'; a.click();
-  }
-});
-
-/* Start */
+/* ---------- Start ---------- */
 wczytajZChmury();
 </script>
-
 </body>
 </html>
