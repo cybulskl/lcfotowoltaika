@@ -89,7 +89,37 @@
   <button type="button" id="exportBtn">Eksportuj do CSV</button>
 </form>
 
- 
+<div id="filterContainer" style="margin-bottom: 20px;">
+  <label for="filterStart">Od daty:</label>
+  <input type="date" id="filterStart">
+  <label for="filterEnd">Do daty:</label>
+  <input type="date" id="filterEnd">
+  <button type="button" id="filterBtn">Filtruj zakres</button>
+
+  <hr style="margin:10px 0;">
+
+  <label for="monthFilter">Filtruj po miesiącu:</label>
+  <select id="monthFilter">
+    <option value="">-- wybierz miesiąc --</option>
+    <option value="0">Styczeń</option>
+    <option value="1">Luty</option>
+    <option value="2">Marzec</option>
+    <option value="3">Kwiecień</option>
+    <option value="4">Maj</option>
+    <option value="5">Czerwiec</option>
+    <option value="6">Lipiec</option>
+    <option value="7">Sierpień</option>
+    <option value="8">Wrzesień</option>
+    <option value="9">Październik</option>
+    <option value="10">Listopad</option>
+    <option value="11">Grudzień</option>
+  </select>
+
+  <button type="button" id="monthFilterBtn">Filtruj miesiąc</button>
+  <button type="button" id="clearFilterBtn">Wyczyść filtr</button>
+</div>
+
+  
 
 <!-- Główna tabela -->
 <table id="dataTable">
@@ -322,4 +352,6 @@ clearFilterBtn.addEventListener('click', () => {
   
 </body>
 </html>
+
+
 
