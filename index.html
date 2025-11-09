@@ -211,7 +211,20 @@ function renderTable(){
   const d180 = (Number(p.cur.id180) - Number(p.prev.id180)).toFixed(2);
   const d260 = (Number(p.cur.id260) - Number(p.prev.id260)).toFixed(2);
 
-  opis = `${curLabel} vs ${prevLabel} → GAZ: ${dg} (na dzien) | GAZ: ${dgg} | Grzałka: ${dr} | 180: ${d180} | 260: ${d260}`;
+
+
+// sprawdź, czy to najnowszy rekord (pierwszy wiersz) — idx === 0
+let divisor;
+if (idx === 0) {
+  const today = new Date();
+  divisor = today.getDate(); // aktualny dzień miesiąca
+} else {
+  divisor = daysInMonth; // standardowo cały miesiąc
+}
+
+const dggg = (dgRaw / divisor).toFixed(2);
+   
+  opis = `${curLabel} vs ${prevLabel} → GAZ: ${dg} (na miesiac) / ${dggg} (na dzien) | GAZ: ${dgg} | Grzałka: ${dr} | 180: ${d180} | 260: ${d260}`;
 } else {
   opis = 'Brak danych poprzedniego miesiąca (brak wpisu)';
 }
@@ -300,6 +313,7 @@ wczytajZChmury();
 </script>
 </body>
 </html>
+
 
 
 
