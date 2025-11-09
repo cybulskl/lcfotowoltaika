@@ -197,22 +197,25 @@ function renderTable(){
 
     // Oblicz różnicę cur - prev (jeżeli prev istnieje)
     let opis = '';
-    if(p.prev){
-      const curLabel = p.cur.data;
-      const prevLabel = p.prev.data;
-    // policz różnicę i podziel przez liczbę dni miesiąca cur
-const curDate = parseDate(p.cur.data);
-const daysInMonth = new Date(curDate.getFullYear(), curDate.getMonth() + 1, 0).getDate();
-const dgRaw = Number(p.cur.gaz) - Number(p.prev.gaz);
-const dg = (dgRaw / daysInMonth).toFixed(2);
+  if(p.prev){
+  const curLabel = p.cur.data;
+  const prevLabel = p.prev.data;
 
-      const dr = (Number(p.cur.grzalka) - Number(p.prev.grzalka)).toFixed(2);
-      const d180 = (Number(p.cur.id180) - Number(p.prev.id180)).toFixed(2);
-      const d260 = (Number(p.cur.id260) - Number(p.prev.id260)).toFixed(2);
-      opis = `${curLabel} vs ${prevLabel} → GAZ: ${dg} | Grzałka: ${dr} | 180: ${d180} | 260: ${d260}`;
-    } else {
-      opis = 'Brak danych poprzedniego miesiąca (brak wpisu)';
-    }
+  // --- liczenie różnic ---
+  const curDate = parseDate(p.cur.data);
+  const daysInMonth = new Date(curDate.getFullYear(), curDate.getMonth() + 1, 0).getDate();
+
+  const dgRaw = Number(p.cur.gaz) - Number(p.prev.gaz);
+  const dg = (dgRaw / daysInMonth).toFixed(2); // różnica GAZ / dni miesiąca
+  const dr = (Number(p.cur.grzalka) - Number(p.prev.grzalka)).toFixed(2);
+  const d180 = (Number(p.cur.id180) - Number(p.prev.id180)).toFixed(2);
+  const d260 = (Number(p.cur.id260) - Number(p.prev.id260)).toFixed(2);
+
+  opis = `${curLabel} vs ${prevLabel} → GAZ: ${dg} (na dzień) | Grzałka: ${dr} | 180: ${d180} | 260: ${d260}`;
+} else {
+  opis = 'Brak danych poprzedniego miesiąca (brak wpisu)';
+}
+
     diffBody.innerHTML += `<tr><td>${p.year}</td><td>${opis}</td></tr>`;
   });
 
@@ -297,4 +300,5 @@ wczytajZChmury();
 </script>
 </body>
 </html>
+
 
