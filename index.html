@@ -213,7 +213,7 @@ function renderTable(){
   const d180 = (Number(p.cur.id180) - Number(p.prev.id180)).toFixed(2);
   const d260 = (Number(p.cur.id260) - Number(p.prev.id260)).toFixed(2);
 
-  opis = `${curLabel} vs ${prevLabel} → GAZ: ${dg} (na dzień) | GAZ: ${dggg} | Grzałka: ${dr} | 180: ${d180} | 260: ${d260}`;
+  opis = `${curLabel} vs ${prevLabel} → GAZ: ${dg} (na dzień) | GAZ: ${daysInMonth} | Grzałka: ${dr} | 180: ${d180} | 260: ${d260}`;
 } else {
   opis = 'Brak danych poprzedniego miesiąca (brak wpisu)';
 }
@@ -302,6 +302,7 @@ wczytajZChmury();
 </script>
 </body>
 </html>
+
 
 
 
