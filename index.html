@@ -208,12 +208,11 @@ function renderTable(){
 
   const dgRaw = Number(p.cur.gaz) - Number(p.prev.gaz);
   const dg = (dgRaw / daysInMonth).toFixed(2); // różnica GAZ / dni miesiąca
-  const dggg = (dgRaw / curDate).toFixed(2); // różnica GAZ / dni miesiąca
   const dr = (Number(p.cur.grzalka) - Number(p.prev.grzalka)).toFixed(2);
   const d180 = (Number(p.cur.id180) - Number(p.prev.id180)).toFixed(2);
   const d260 = (Number(p.cur.id260) - Number(p.prev.id260)).toFixed(2);
 
-  opis = `${curLabel} vs ${prevLabel} → GAZ: ${dg} (na dzień) | GAZ: ${daysInMonth} | Grzałka: ${dr} | 180: ${d180} | 260: ${d260}`;
+  opis = `${curLabel} vs ${prevLabel} → GAZ: ${dg} (na dzień) | GAZ: ${dgg} | Grzałka: ${dr} | 180: ${d180} | 260: ${d260}`;
 } else {
   opis = 'Brak danych poprzedniego miesiąca (brak wpisu)';
 }
@@ -302,6 +301,7 @@ wczytajZChmury();
 </script>
 </body>
 </html>
+
 
 
 
